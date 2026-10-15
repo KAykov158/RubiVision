@@ -1,0 +1,11 @@
+# RubiVision AI / Statistics — Task 05: Filters and breakdowns
+
+## Goal and exact implementation requirements
+Create a pure selector pipeline for puzzle, session, UTC date range, and optional latest-count view. Clarify date range semantics (inclusive start, exclusive end) and convert local date-picker selections to UTC instants in the UI adapter, not by naive string slicing. Avoid timezone-dependent golden tests. Verify session-puzzle association; reject or flag inconsistent records rather than grouping misleadingly. All metrics and chart series must derive from the same filtered, chronological subset. Group counts, valid counts, DNF counts and mean by puzzle and session. If viewing all puzzles, show count breakdown and separate per-puzzle performance; do not present a single cross-puzzle best as meaningful. Explicitly specify filter composition AND semantics and reset behavior.
+Tests: no matches, single day, DST transitions with explicit offsets, start=end, invalid date interval, session with no solves, multiple puzzles, all-DNF group, filter changes update rolling windows from filtered data.
+
+## Boundaries and handoff
+Work only on this task plus necessary typed integration. If a dependency is missing, document it and stop or provide a minimal tested interface. Return a checklist of acceptance criteria with evidence, actual command outputs summarized, and the next task to execute.
+
+## Mandatory agent protocol
+Read `00_MASTER_INSTRUCTIONS.md`, `00_DATA_CONTRACTS.md`, `00_PROJECT_ROADMAP.md`, `00_INTEGRATION_CHECKLIST.md`, and original `05_Statistics.md`. Inspect actual repository, package scripts, types, and tests before editing. Suggested paths are NOT guaranteed. Preserve working functionality; do not implement unrelated modules. Keep strict TypeScript, pure computation, and typed interfaces. Before edits state plan and files. After edits run available tests, typecheck, lint, build; report actual outcomes, changes, remaining blockers. Never fabricate success. If prerequisite repository contracts are missing, create the smallest typed adapter or report blocker. No React component may query IndexedDB directly. Do not persist derived statistics as competing source of truth.
