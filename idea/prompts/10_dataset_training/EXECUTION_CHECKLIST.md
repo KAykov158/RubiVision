@@ -1,0 +1,21 @@
+# Execution checklist (mark only after actual evidence)
+
+- [ ] 00_START_HERE: Execution orchestration — Plan cites actual repository paths; all blockers and conflicts are explicit; stages are independently executable.
+- [ ] 01_CONTRACTS: Feature contracts and schemas — Round-trip schema fixtures in Python/TS; reject NaN, bad ranges, unknown labels, incompatible schema and absent consent.
+- [ ] 02_CONSENT: Consent and secure dataset intake — Reject missing or withdrawn consent, invalid MIME/size, unsafe paths, unauthorized access and publicly readable dataset media.
+- [ ] 03_LABEL_GUIDE: Annotation protocol — Two annotators can label the same sample consistently; overlaps, gaps, invalid timestamps and ambiguous definitions are explicitly handled.
+- [ ] 04_MANIFEST: Dataset manifest and validation — Malformed rows fail; clean fixtures pass; no participant identifiers leak in published reports.
+- [ ] 05_FEATURES: Deterministic feature extraction — Static, moving, blurred, empty and variable-FPS fixtures tested; no wall-clock timestamps substituted for video time.
+- [ ] 06_SPLITS: Leakage-safe data splitting — Fixed seed yields identical splits; cross-split participant leakage is impossible in participant split mode; test lock cannot be silently overwritten.
+- [ ] 07_BASELINE: Threshold baseline — All classes and boundary thresholds tested; deterministic predictions and reproducible baseline configuration.
+- [ ] 08_TRAIN: Real classifier training — Repeatable training on provided fixtures; no fabricated results; no data leakage; all classes and missing features handled.
+- [ ] 09_CALIBRATION: Confidence and uncertainty — Unknown/poor-quality frames never silently become PAUSE; thresholds and calibration provenance documented.
+- [ ] 10_EVALUATE: Locked held-out evaluation — Evaluation deterministic; class order fixed; zero-division and no-boundary cases defined; test data never used for tuning.
+- [ ] 11_EXPORT: Browser-compatible model export — Golden vectors produce matching Python/browser predictions within documented tolerance; incompatible schema fails closed.
+- [ ] 12_INTEGRATION: Application analysis integration — Timeline uses [start,end), video offset correct; solve persists independently of AI; no fabricated analysis on failure.
+- [ ] 13_ANNOTATION_UI: Annotation and correction UI — Correct seeking and edit boundaries, versioned revisions, keyboard accessibility, invalid edits rejected.
+- [ ] 14_SECURITY: Privacy, security and deletion verification — Cross-user access denied; consent withdrawal prevents new training; secrets absent from client bundle.
+- [ ] 15_CI: Reproducibility and continuous integration — Fresh checkout runs public synthetic smoke suite; missing private dataset results in honest skip, not false success.
+- [ ] 16_STRESS: Robustness and performance — Stress failures are categorized; UI remains responsive; no invented performance targets.
+- [ ] 17_ACADEMIC: Graduation report and demonstration — Every performance claim traces to a real experiment artifact; limitations and source citations documented.
+- [ ] 18_FINAL_AUDIT: Final acceptance audit — Every completion claim has executed evidence; unresolved blockers and next steps explicit.
