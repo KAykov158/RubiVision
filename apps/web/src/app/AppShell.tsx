@@ -63,7 +63,7 @@ export function AppShell() {
 
   return (
     <>
-      <a className="app-skip-link" href="#main-content">{t('skipToContent')}</a>
+      <a className="app-skip-link" href="#main-content" tabIndex={0}>{t('skipToContent')}</a>
       <p aria-live="polite" className={connectionStatus === 'offline' ? 'app-connectivity app-connectivity--offline' : 'rv-visually-hidden'} role={connectionStatus ? 'status' : undefined}>
         {connectionStatus === 'offline' ? t('offlineNotice') : connectionStatus === 'online' ? t('connectionRestored') : ''}
       </p>

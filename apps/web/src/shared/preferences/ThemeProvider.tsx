@@ -30,7 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
   const [message, setMessage] = useState<PreferenceMessage>(preferencesService ? null : 'session-only');
   const [hasLoaded, setHasLoaded] = useState(!preferencesService);
-  const saveSequence = useRef(0);
+  const preferenceSequence = useRef(0);
 
   useEffect(() => {
     const mediaQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
@@ -55,9 +55,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!preferencesService) {
       return () => { active = false; };
     }
+    const sequence = preferenceSequence.current;
 
     void Promise.resolve().then(() => preferencesService.getThemePreference()).then((result) => {
-      if (!active) return;
+      if (!active || preferenceSequence.current !== sequence) return;
       setHasLoaded(true);
       if (result.status === 'success') {
         if (result.data === null) {
@@ -73,7 +74,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setMessage('load-failed');
       }
     }).catch(() => {
-      if (!active) return;
+      if (!active || preferenceSequence.current !== sequence) return;
       setHasLoaded(true);
       setMessage('load-failed');
     });
@@ -87,18 +88,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setPreference = useCallback((nextPreference: ThemePreference) => {
     setPreferenceState(nextPreference);
+    setHasLoaded(true);
     if (nextPreference === 'system') setSystemTheme(getSystemTheme());
-    const sequence = ++saveSequence.current;
+    const sequence = ++preferenceSequence.current;
     if (!preferencesService) {
       setMessage('session-only');
       return;
     }
 
     void Promise.resolve().then(() => preferencesService.saveThemePreference(nextPreference)).then((result: ServiceResult<void>) => {
-      if (saveSequence.current !== sequence) return;
+      if (preferenceSequence.current !== sequence) return;
       setMessage(result.status === 'success' ? 'saved' : 'save-failed');
     }).catch(() => {
-      if (saveSequence.current === sequence) setMessage('save-failed');
+      if (preferenceSequence.current === sequence) setMessage('save-failed');
     });
   }, [preferencesService]);
 

@@ -136,7 +136,7 @@ Separate measurable goals for turn recognition, full-sequence reconstruction, st
 |---|---|---|---|
 | 2×2–7×7 timer and scrambles | Required product target | Maintain | Maintain |
 | Inspection, +2/DNF and configurable timer | Required | Maintain | Maintain |
-| IndexedDB, sessions and statistics | Required | Maintain | Maintain |
+| Persistent sessions and statistics (Supabase PostgreSQL; supersedes the earlier IndexedDB plan) | Required | Maintain | Maintain |
 | Recording and video import | Required | Maintain | Maintain |
 | Manual video interval annotation | Required for data workflow | Maintain | Maintain |
 | Movement/pause/uncertain classifier | Required AI contribution | Improve | Supporting signal |
@@ -245,7 +245,9 @@ Each puzzle has a puzzle-specific scramble generator or validated provider, clea
 
 ## 9.1 Why a dedicated database module exists
 
-A reliable training application cannot treat solve history as incidental UI state. It needs durable, versioned persistence, integrity rules, storage quota handling, backup and migration. The graduation architecture uses **IndexedDB** for structured records; large video blobs may be stored through a browser-supported media storage adapter (for example IndexedDB blobs or OPFS), with capability detection and graceful fallback.
+> **Historical architecture statement — superseded:** The following paragraph records the earlier IndexedDB design. Current implementation must use Supabase PostgreSQL as the sole persistent application database; do not add IndexedDB, localStorage application persistence, a durable offline queue, or automatic synchronization. See the current authority notice at the end of this document and master decisions 11/12/13/17.
+
+> **Superseded historical requirement, retained for traceability:** A reliable training application cannot treat solve history as incidental UI state. It needs durable, versioned persistence, integrity rules, storage quota handling, backup and migration. The earlier graduation architecture proposed **IndexedDB** for structured records; large video blobs could be stored through a browser-supported media storage adapter (for example IndexedDB blobs or OPFS), with capability detection and graceful fallback. This paragraph is not current implementation guidance.
 
 ## 9.2 Proposed entities
 
@@ -791,7 +793,7 @@ The roadmap is dependency-ordered, not a calendar promise. Development effort de
 
 ## 25.3 Fallback minimum viable defense
 
-If video model quality is modest, the project can still present a legitimate AI experiment if data collection, training, evaluation and error analysis are real and well documented. If live camera fails, use imported consented footage. If cloud features are unfinished, keep the app offline-first. Do **not** substitute fabricated performance or a generic external API for missing experimental work.
+If video model quality is modest, the project can still present a legitimate AI experiment if data collection, training, evaluation and error analysis are real and well documented. If live camera fails, use imported consented footage. The earlier fallback to keep the app offline-first when cloud features are unfinished is superseded: under the current architecture, present cloud-backed features as unavailable until the Supabase service is implemented. Do **not** substitute fabricated performance or a generic external API for missing experimental work.
 
 # 26. Ultimate goal: automatic move recognition and state reconstruction
 
@@ -953,4 +955,4 @@ These references identify relevant documentation; the final diploma bibliography
 
 ## 2026-10-16 Cloud-first architecture extension
 
-The graduation MVP now includes Supabase PostgreSQL, Supabase Auth and owner-scoped RLS from category 02/02A. Local IndexedDB is retained only for timer durability/outbox and bounded cache; Supabase is authoritative. See master documents 11–15 and category 02A for architecture, schema, sync, security, deployment, cost and acceptance tests. All original AI goals, timer/puzzle features, experimental evidence and graduation deliverables remain unchanged.
+Current architecture decision: Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS are required for cloud access. No IndexedDB, other browser/local database, localStorage application persistence, durable offline outbox, or automatic synchronization is permitted. Failed writes may remain only in volatile tab memory and must be shown as unsaved. The older storage, cache and offline-first passages in this preserved source document are historical requirements, superseded by master documents 11 and 17 and categories 02/02A; all non-conflicting product, research and evidence requirements remain.

@@ -50,8 +50,10 @@ for (const pageSpec of pages) {
 test('keyboard navigation moves between Solves and Statistics and browser back restores Solves', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/solves');
+  const skipLink = page.getByRole('link', { name: 'Skip to content' });
+  await expect(skipLink).toBeAttached();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  await expect(skipLink).toBeFocused();
   await page.getByRole('button', { name: 'Open navigation menu' }).focus();
   await page.keyboard.press('Enter');
   const drawer = page.getByRole('dialog', { name: 'Navigation' });

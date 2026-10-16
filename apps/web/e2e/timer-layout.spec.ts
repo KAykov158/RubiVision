@@ -152,6 +152,7 @@ test('keyboard navigation opens the mobile drawer and focuses the new route', as
   await page.goto('/timer');
 
   const skip = page.getByRole('link', { name: 'Skip to content' });
+  await expect(skip).toBeAttached();
   await page.keyboard.press('Tab');
   await expect(skip).toBeFocused();
   await page.keyboard.press('Enter');

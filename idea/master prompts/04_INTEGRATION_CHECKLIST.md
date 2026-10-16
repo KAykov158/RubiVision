@@ -1,10 +1,10 @@
-> **CLOUD-FIRST ADDITIVE REVISION (2026-10-16).** This original specification is preserved in full for traceability. Where it describes IndexedDB as the authoritative database, local-only accounts, optional/future cloud, or cloud synchronization postponed until after graduation, those statements are superseded by `master prompts/11_CLOUD_FIRST_DECISION_AND_OVERRIDES.md`. **Supabase PostgreSQL + Auth are required from category 02; IndexedDB is a resilience cache/outbox, not the authoritative store.** No other requirements are removed. Read the cloud addendum and the original content together.
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This file retains earlier requirements for traceability. Any instructions here to use IndexedDB, another browser/local database, localStorage for application persistence, a durable offline write queue, or automatic synchronization are superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS govern future cloud data. A failed write may remain only in volatile tab memory with an explicit unsaved state. Other requirements remain unless separately superseded.
 
 # Integration checklist
 
 - [ ] All feature modules use stable typed IDs, timestamps, puzzle IDs and schema versions.
 - [ ] Timer and scrambles remain operational without camera or AI.
-- [ ] IndexedDB transactions and migrations tested.
+- [ ] Supabase SQL migrations, constraints, and owner-scoped RLS policies are tested; no browser database migrations are used.
 - [ ] Recorded video and timer alignment metadata retained.
 - [ ] Manual stage labels and model predictions visibly distinguished.
 - [ ] Feature extraction and training agree on schema/normalization.
@@ -20,7 +20,7 @@
 - [ ] Supabase dev/prod environment and versioned migrations exist.
 - [ ] Auth lifecycle and user isolation verified.
 - [ ] Every private table and Storage bucket has tested RLS; cross-owner FK rejected.
-- [ ] IndexedDB outbox handles offline solves, retries, duplicate prevention and account switches.
-- [ ] UI displays pending/synced/failed/unsaved states.
+- [ ] Confirmed Supabase saves are distinguished from failed or unavailable saves; failed writes are not queued for automatic retry.
+- [ ] UI displays saving/saved/unsaved states honestly; any retained failed-write data is volatile tab memory only.
 - [ ] Secrets excluded from frontend/git; types generated from schema.
-- [ ] Export/import and graduation demo fallback tested.
+- [ ] Export/import and graduation demo fallback tested; offline demo behavior does not imply persistent local writes or synchronization.

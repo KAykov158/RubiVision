@@ -53,6 +53,14 @@ Supabase Auth is the identity provider for cloud access. The authentication adap
 
 No timer, scramble generator, cloud repository, authentication flow, local database, or sync implementation is part of Prompt 3.
 
+## Prompt 12 implementation status
+
+The final Phase 1 audit at baseline commit `f261221fced5317b8f48810c0aea0f0c8e719059` confirms that the app currently composes the six UI routes over `AppServicesProvider`, `LocaleProvider`, and `ThemeProvider`. The contracts and provider are integration seams only: no Supabase client, Auth adapter, PostgreSQL schema, or RLS policy is configured. The default app therefore reports service-backed routes as unavailable, except that Solves can render typed records if a service is injected. Theme preference changes are session-only in the default app.
+
+No IndexedDB, localStorage, durable offline queue, or automatic synchronization is present in apps/web/src. The legacy Foundation sources now carry explicit Supabase-only supersession notices, and their active persistence guidance is aligned with master documents 11 and 17. Their original conflicting statements remain only where preserved as historical source material.
+
+See [the Prompt 12 final audit](prompt12-final-audit.md) for route-by-route evidence, current verification results, findings, unverified manual checks, and the timer integration handoff. The audit is a conditional acceptance of the Foundation/UI shell, not a claim that the timer, cloud persistence, or RubiVision MVP is implemented.
+
 ## Verification
 
 Final checks ran from `apps/web` with Node 24.20.0 and npm 11.19.0:

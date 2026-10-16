@@ -1,3 +1,5 @@
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This Foundation source pack preserves older requirements for traceability. Any requirement below that calls for IndexedDB, another browser/local database, localStorage application persistence, durable offline writes, or automatic synchronization is superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS apply to future cloud access. A failed write may remain only in volatile tab memory and must be explicitly unsaved. Domain contracts and non-storage product requirements remain unless separately superseded.
+
 # RubiVision AI — Phase 1 enhanced coding-agent pack (v2)
 
 This is an improved replacement for the original 13-prompt pack. It contains **20 numbered agent prompts (00–19)** and 5 source specifications. The original 13 prompts are retained unchanged; seven deeper follow-up tasks cover UI specification, independent review, browser compatibility, performance, security/privacy, integration rehearsal and release gate.
@@ -11,11 +13,11 @@ This is an improved replacement for the original 13-prompt pack. It contains **2
 6. Stop if the agent claims successful tests without output, introduces a future module, or rewrites unrelated code.
 
 ## Scope and authority
-Source-derived: React/TypeScript foundation, six navigation destinations, themes, accessible responsive states, no direct DB in views, offline-first, typed service contracts and verified tests.
+Source-derived: React/TypeScript foundation, six navigation destinations, themes, accessible responsive states, no direct database access in views, Supabase-only persistence, typed service contracts and verified tests.
 Added engineering recommendations: numeric responsive checkpoints, detailed design blueprint, cross-browser matrix, performance audit, security audit, simulated provider lifecycle, deployment deep-link validation. These additions are *not* original contractual requirements; use them to strengthen quality, not to overwrite the user's source.
 
 ## Definition of Phase 1 complete
-Every required Foundation/UI criterion is verified in the actual repository. All tests have real results. No unimplemented timer, scrambles, persistence, statistics, video or AI are represented as functioning. There is an actionable handoff to Phase 2.
+Every required Foundation/UI criterion is verified in the actual repository. All tests have real results. No unimplemented timer, scrambles, persistence, statistics, video or AI are represented as functioning. There is an actionable handoff to Category 02: the Supabase PostgreSQL schema and data foundation, followed by Category 02A Auth/RLS and cloud repositories.
 
 ## Files
 - `PROMPTS/00...12`: original sequential agent prompts

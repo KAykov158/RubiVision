@@ -1,3 +1,5 @@
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This Foundation source pack preserves older requirements for traceability. Any requirement below that calls for IndexedDB, another browser/local database, localStorage application persistence, durable offline writes, or automatic synchronization is superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS apply to future cloud access. A failed write may remain only in volatile tab memory and must be explicitly unsaved. Domain contracts and non-storage product requirements remain unless separately superseded.
+
 # RubiVision AI — Canonical Data and Integration Contracts
 
 These are proposed canonical contracts. Before implementation, compare them with the repository; document and migrate any deliberate change across ALL dependent prompts.
@@ -53,7 +55,7 @@ export interface FeatureWindow {
 - Session deletion must have explicit cascade/reassignment behavior; never leave silent orphan solves.
 - `ActivitySegment` and `FeatureWindow` use half-open intervals `[startMs,endMs)` relative to recording start; `0 <= startMs < endMs <= recording.durationMs`; ordered segments cannot overlap. Confidence is null when unavailable, otherwise within [0,1].
 - Model output label IDs, feature ordering, preprocessing, sampling/window size and model version must be saved in an explicit model manifest. Training/export and runtime inference must validate the same manifest.
-- Use schema-versioned JSON backups and IndexedDB migrations; import must validate relationships and be transactional. Video blobs can be excluded from lightweight backups only if clearly disclosed.
+- Use versioned Supabase SQL migrations and schema-validated JSON export/import. Validate relationships before writes; database mutations must be transactional in PostgreSQL.
 
 ## Public service boundaries (illustrative)
 ```typescript
@@ -69,8 +71,8 @@ interface AnalysisService {
 }
 ```
 
-## Database ownership
-Store `sessions`, `solves`, `scrambles`, `recordings`, `analyses`, `settings` in versioned IndexedDB stores. Repository/service layer owns persistence, not React components. Use transactions for multi-store changes and idempotency guards when a solve is completed.
+## Database ownership (current rule)
+Store persistent application records in Supabase PostgreSQL through typed repositories/services. Supabase Auth identifies the user and owner-scoped RLS authorizes access. UI components do not access the database directly. Do not add IndexedDB, another browser database, localStorage application persistence, a durable offline write queue, or automatic synchronization. Failed writes may remain only in volatile tab memory with explicit unsaved status.
 
-## Open decisions to resolve in code
-Exact library choice, whether recordings live as IndexedDB blobs or OPFS references, browser-compatible model format, and session deletion policy. Record each decision before implementing dependent features; do not treat examples as existing implementations.
+## Open decisions to resolve in code (non-persistence)
+Resolve the browser-compatible model format and session deletion policy before dependent features are implemented. Persistent media storage, if approved by its feature scope, must use consented Supabase Storage with access policies; browser-local durable media storage is not part of the persistence architecture.

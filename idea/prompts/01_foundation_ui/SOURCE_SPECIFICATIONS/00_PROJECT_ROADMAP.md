@@ -1,4 +1,12 @@
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This Foundation source pack preserves older requirements for traceability. Any requirement below that calls for IndexedDB, another browser/local database, localStorage application persistence, durable offline writes, or automatic synchronization is superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS apply to future cloud access. A failed write may remain only in volatile tab memory and must be explicitly unsaved. Domain contracts and non-storage product requirements remain unless separately superseded.
+
 # RubiVision AI — Roadmap and Dependency Gates
+
+## Current category sequence (authoritative)
+
+Follow master document 11 and `idea/master prompts/03_DEVELOPMENT_ROADMAP.md`: Category 01 Foundation → **02 Supabase PostgreSQL schema, migrations, constraints, and generated database types** → **02A Supabase Auth, owner-scoped RLS, and cloud repositories** → 03 puzzles/scrambles → **04 timer** → **05 solve/session functionality** → later categories.
+
+The phase table below is retained as historical source material. Its old Phase 2 Timer / Phase 3 Solves ordering is superseded as an execution sequence by the current category order above. Do not use its phase numbers to select the next implementation prompt; non-conflicting domain and feature requirements remain in force.
 
 ## Sequence and dependencies
 | Phase | Topic prompts | Dependency | Exit gate |

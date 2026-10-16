@@ -38,10 +38,12 @@ test('mobile navigation traps focus, dismisses on Escape, and restores focus', a
   await expect(trigger).toBeFocused();
 });
 
-test('offline status is informational and navigation remains usable', async ({ page, context }) => {
+test('offline status is informational and navigation remains usable', async ({ page, context, browserName }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/timer');
   await context.setOffline(true);
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+  test.skip(browserName === 'webkit', 'Playwright WebKit changes navigator.onLine but does not deliver the offline event; event handling is tested separately.');
   await expect(page.locator('.app-connectivity')).toContainText('Your browser reports that you are offline');
 
   await page.getByRole('button', { name: 'Open navigation menu' }).click();

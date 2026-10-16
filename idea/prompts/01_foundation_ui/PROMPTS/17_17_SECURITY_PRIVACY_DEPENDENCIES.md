@@ -2,7 +2,7 @@
 
 ## Copy this entire file to a coding agent
 
-You are a senior engineer working on an existing offline-first RubiVision AI codebase. This is a focused follow-up task to improve Phase 1 reliability and completeness, not permission to implement later features.
+You are a senior engineer working on an existing RubiVision AI codebase governed by the Supabase-only architecture. This is a focused follow-up task to improve Phase 1 reliability and completeness, not permission to implement later features.
 
 ## Detailed requirements
 
@@ -10,7 +10,7 @@ You are a senior engineer working on an existing offline-first RubiVision AI cod
 2. Run available package-manager dependency audit, interpret severity and exploitability; do not automatically force-upgrade breaking dependencies.
 3. Check untrusted text rendering and avoid unsafe HTML injection. Validate external link behavior and no accidental sensitive query parameters.
 4. Ensure Phase 1 never requests camera, microphone, Bluetooth or cloud permissions; future settings labels must not imply consent or upload.
-5. Check third-party fonts, analytics, CDNs and external resources against offline-first/privacy goals; document any network dependencies.
+5. Check third-party fonts, analytics, CDNs and external resources against the Supabase-only architecture and privacy goals; document any network dependencies.
 6. Confirm errors and logs do not expose personal or secret data; add user-friendly failure messages.
 7. Document threat model relevant to UI: local storage tampering, malicious imported content (future), dependency risk, clickjacking (deployment-level), CSP considerations.
 8. Do not claim a full penetration test; provide evidence-backed risk register and safe remediation.

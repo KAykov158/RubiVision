@@ -2,7 +2,7 @@
 
 ## Copy this entire file to a coding agent
 
-You are a senior engineer working on an existing offline-first RubiVision AI codebase. This is a focused follow-up task to improve Phase 1 reliability and completeness, not permission to implement later features.
+You are a senior engineer working on an existing RubiVision AI codebase governed by the Supabase-only architecture. This is a focused follow-up task to improve Phase 1 reliability and completeness, not permission to implement later features.
 
 ## Detailed requirements
 

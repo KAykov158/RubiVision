@@ -15,9 +15,9 @@
 **30 categories total: the original 29 are unchanged and 02A is added.** Category 02 is reinterpreted using cloud-first precedence, and category 28 is now advanced cloud/smart cube only. Follow 01 → 02 → **02A** → 03 → ... → 29. Graduation delivery is 01–16 **plus 02A**.
 
 - **01 Foundation/UI:** shell, auth routing placeholders, configuration and typed boundaries.
-- **02 Data contracts/database:** Supabase schema design, repository interfaces, SQL migrations, IndexedDB outbox contract.
-- **02A Supabase cloud foundation:** hosted project, Auth, RLS, actual cloud CRUD, durable local queue, multi-device sync tests.
-- **03–06:** scrambles, timer, sessions, statistics using cloud-backed repositories and offline-tolerant local writes.
+- **02 Data contracts/database:** Supabase schema design, repository interfaces, SQL migrations, generated types and ownership constraints; no browser database or outbox.
+- **02A Supabase cloud foundation:** hosted project, Auth, RLS, verified cloud CRUD and multi-user isolation tests. Failed writes remain unsaved in volatile tab memory only; no durable queue or automatic sync.
+- **03–06:** scrambles, timer, sessions and statistics through cloud-backed repositories; timer measurement can proceed offline, while persistence requires an acknowledged Supabase write.
 - **07–13:** camera/annotation/vision/training/inference/insights/experiments; no automatic media upload, preserve all original ML evidence.
 - **14–16:** cloud-aware settings/backup, security/quality, hosted graduation release and offline fallback.
 - **17–18:** verified moves and algorithm bridge.
@@ -26,7 +26,7 @@
 
 ## Original chronological roadmap (retained verbatim after the revision notice)
 
-> **CLOUD-FIRST ADDITIVE REVISION (2026-10-16).** This original specification is preserved in full for traceability. Where it describes IndexedDB as the authoritative database, local-only accounts, optional/future cloud, or cloud synchronization postponed until after graduation, those statements are superseded by `master prompts/11_CLOUD_FIRST_DECISION_AND_OVERRIDES.md`. **Supabase PostgreSQL + Auth are required from category 02; IndexedDB is a resilience cache/outbox, not the authoritative store.** No other requirements are removed. Read the cloud addendum and the original content together.
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This file retains earlier requirements for traceability. Any instructions here to use IndexedDB, another browser/local database, localStorage for application persistence, a durable offline write queue, or automatic synchronization are superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS govern future cloud data. A failed write may remain only in volatile tab memory with an explicit unsaved state. Other requirements remain unless separately superseded.
 
 # Chronological development roadmap
 

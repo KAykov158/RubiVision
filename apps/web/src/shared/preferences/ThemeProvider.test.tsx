@@ -65,6 +65,30 @@ describe('theme preference infrastructure', () => {
     await waitFor(() => expect(screen.getByLabelText('Theme state')).toHaveTextContent('light:light'));
   });
 
+  it('keeps a newer user choice when an older preference read resolves later', async () => {
+    let resolveRead!: (result: ServiceResult<unknown>) => void;
+    const pendingRead = new Promise<ServiceResult<unknown>>((resolve) => { resolveRead = resolve; });
+    const preferences: UserPreferencesService = {
+      getThemePreference: vi.fn(() => pendingRead),
+      saveThemePreference: vi.fn(async (): Promise<ServiceResult<void>> => ({ status: 'success', data: undefined })),
+    };
+    render(<AppProviders services={createServices(preferences)}><><ThemeStatus /><ThemeSettings /></></AppProviders>);
+
+    const select = await screen.findByRole('combobox', { name: 'Color theme' });
+    await waitFor(() => expect(preferences.getThemePreference).toHaveBeenCalledOnce());
+    fireEvent.change(select, { target: { value: 'dark' } });
+    expect(screen.getByLabelText('Theme state')).toHaveTextContent('dark:dark');
+    expect(await screen.findByText('Theme preference saved to your account.')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveRead({ status: 'success', data: 'light' });
+      await pendingRead;
+    });
+
+    expect(screen.getByLabelText('Theme state')).toHaveTextContent('dark:dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+  });
+
   it('ignores a corrupted persisted value and falls back to system without crashing', async () => {
     const preferences: UserPreferencesService = {
       getThemePreference: async () => ({ status: 'success', data: 'sepia' }),

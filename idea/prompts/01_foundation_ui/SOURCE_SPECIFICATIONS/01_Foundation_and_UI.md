@@ -1,3 +1,5 @@
+> **SUPABASE-ONLY ARCHITECTURE OVERRIDE (2026-10-16).** This Foundation source pack preserves older requirements for traceability. Any requirement below that calls for IndexedDB, another browser/local database, localStorage application persistence, durable offline writes, or automatic synchronization is superseded by master documents 11 and 17. Supabase PostgreSQL is the sole persistent application database; Supabase Auth and owner-scoped RLS apply to future cloud access. A failed write may remain only in volatile tab memory and must be explicitly unsaved. Domain contracts and non-storage product requirements remain unless separately superseded.
+
 # 01. Foundation and UI
 
 **Delivery phase:** Graduation  
@@ -8,7 +10,7 @@ This module provides the foundation and ui capability within RubiVision AI. It m
 
 ## Functional requirements
 1. Responsive application shell; navigation for Timer, Solves, Statistics, Analyze, Challenges, Settings.
-2. Accessible keyboard/touch/mobile interaction; error, loading, empty and offline states.
+2. Accessible keyboard/touch/mobile interaction; error, loading, empty, unavailable, and connectivity/unsaved states with honest persistence messaging.
 3. Design tokens, theme, internationalization-ready strings, responsive video and chart layouts.
 4. No direct database, timer or model implementation inside view components.
 
@@ -27,7 +29,7 @@ This module provides the foundation and ui capability within RubiVision AI. It m
 - **Purpose:** This is a feature requirements document, not an instruction to implement the feature immediately. Future coding prompts must reference this specification and the shared contracts.
 - **Priority:** Graduation modules are required for the proposed graduation build; ultimate and optional modules are not graduation blockers unless the school explicitly requires them.
 - **Evidence:** Do not claim functionality, model accuracy, WCA compliance, exact move tracking or speed gains without implementation and tests.
-- **Offline-first:** Timer, puzzles, history, statistics and core local analysis must not depend on an account or internet.
+- **Connectivity:** Timer measurement may continue without internet; history and other persistent writes require Supabase connectivity and must show unsaved status when not acknowledged. No local database or automatic offline synchronization is allowed.
 - **Data:** Stable IDs, UTC timestamps, millisecond durations, schema versions and provenance for generated/inferred/manual data. Preserve originals when creating derived analyses.
 - **Privacy:** Camera access is opt-in; local video is private by default; deletion/export are user-controlled. Never upload silently.
 - **Quality:** Define error states, accessibility, unit/integration tests and clear acceptance criteria; do not silently omit edge cases.
@@ -47,5 +49,5 @@ App.tsx, router.tsx, providers.tsx, AppLayout.tsx, Navigation.tsx, TimerPage.tsx
 Create a responsive accessible React/TypeScript shell with dark/light themes, desktop/mobile layouts, loading/empty/error states, and routes for timer, history, statistics, analysis and settings. Keep presentation separate from domain services. Never reset a running timer on navigation; warn before destructive navigation if needed.
 
 ## Acceptance tests and edge cases
-Keyboard accessibility, responsive breakpoints, no hidden overflow, error boundaries, page navigation, no direct IndexedDB calls from visual components.
+Keyboard accessibility, responsive breakpoints, no hidden overflow, error boundaries, page navigation, no direct database calls from visual components, and persistence only through the typed Supabase service boundary.
 
