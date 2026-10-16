@@ -52,6 +52,10 @@ describe('application shell and routes', () => {
     expect(screen.getByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
     if (path === '/statistics') {
       expect(screen.getByRole('heading', { name: 'Statistics are not available yet' })).toBeInTheDocument();
+    } else if (path === '/analyze') {
+      expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeInTheDocument();
+    } else if (path === '/challenges') {
+      expect(screen.getByRole('heading', { name: 'Challenge participation unavailable' })).toBeInTheDocument();
     } else {
       expect(screen.getByRole('status')).toHaveTextContent('Unavailable');
     }

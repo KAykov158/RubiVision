@@ -3,8 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
-  forbidOnly: false,
-  retries: 0,
+  forbidOnly: true,
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : undefined,
   reporter: 'list',
   outputDir: './test-results',
   use: {
@@ -18,7 +19,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',
     url: 'http://127.0.0.1:5173',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
 });

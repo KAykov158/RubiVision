@@ -53,6 +53,8 @@ button { color: inherit; }
 .app-navigation__link.is-active { color: var(--color-accent); background: var(--color-surface-raised); box-shadow: inset 3px 0 0 var(--color-accent); }
 .app-skip-link { position: fixed; z-index: 5; top: var(--space-2); left: var(--space-2); padding: var(--space-2) var(--space-3); transform: translateY(-160%); border-radius: var(--radius-sm); color: var(--color-on-accent); background: var(--color-accent); }
 .app-skip-link:focus { transform: translateY(0); }
+.app-connectivity { margin: 0; padding: var(--space-2) var(--space-4); text-align: center; }
+.app-connectivity--offline { border-bottom: 1px solid var(--color-warning); color: var(--color-warning); background: var(--color-surface-raised); }
 .app-page-description { max-width: 60ch; color: var(--color-text-muted); }
 .route-state { margin-top: var(--space-8); }
 .route-state--unavailable { justify-items: start; gap: var(--space-3); }
@@ -230,6 +232,30 @@ button { color: inherit; }
 .statistics-chart-fallback table { width: 100%; border-collapse: collapse; }
 .statistics-chart-fallback th, .statistics-chart-fallback td { padding: var(--space-3); border-top: 1px solid var(--color-border-subtle); text-align: left; }
 .statistics-chart-fallback th { color: var(--color-text-muted); }
+.analyze-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.analyze-entry-card, .challenge-participation, .challenge-discovery, .settings-card { display: grid; align-content: start; justify-items: start; gap: var(--space-3); min-width: 0; }
+.analyze-entry-card h3, .analyze-entry-card p, .challenge-participation p, .challenge-discovery > p, .settings-card p { margin: 0; }
+.analyze-entry-card p, .challenge-participation p, .challenge-discovery > p, .settings-card p { color: var(--color-text-muted); }
+.analyze-video-panel { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; gap: var(--space-3); width: 100%; min-width: 0; aspect-ratio: 16 / 9; padding: var(--space-4); border-style: dashed; color: var(--color-text-muted); text-align: center; }
+.analyze-video-panel > span { font-size: var(--font-size-2xl); }
+.analyze-video-panel p { max-width: 48ch; margin: 0; }
+.analyze-results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.analyze-results-grid .rv-card { min-width: 0; }
+.analyze-results-grid h3, .analyze-results-grid p { margin: 0; }
+.analyze-results-grid p { margin-top: var(--space-2); color: var(--color-text-muted); }
+.analyze-limitation { padding: var(--space-4); margin: 0; border-inline-start: 3px solid var(--color-warning); color: var(--color-text-muted); background: var(--color-surface); }
+.challenge-discovery .route-state { width: 100%; margin-top: 0; }
+.settings-page { gap: var(--space-6); }
+.settings-section { display: grid; gap: var(--space-3); min-width: 0; }
+.settings-section > .data-page__section-heading { align-items: center; }
+.settings-section > .data-page__section-heading h2 { margin: 0; font-size: var(--font-size-xl); }
+.settings-section > .route-state { margin-top: 0; }
+.settings-section .app-preferences { width: 100%; margin-top: 0; }
+.settings-preference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.settings-preference-grid .rv-card { min-width: 0; }
+.settings-preference-grid h3, .settings-preference-grid p { margin: 0; }
+.settings-preference-grid h3 { font-size: var(--font-size-md); }
+.settings-preference-grid p { margin-top: var(--space-2); color: var(--color-text-muted); }
 
 @keyframes rv-spin { to { transform: rotate(360deg); } }
 @keyframes rv-pulse { to { opacity: 0.45; } }
@@ -262,6 +288,7 @@ button { color: inherit; }
   .statistics-page__session { text-align: left; }
   .solves-filters, .statistics-filters { grid-template-columns: minmax(0, 1fr); }
   .statistics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analyze-entry-grid, .analyze-results-grid, .settings-preference-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (min-width: 30.0625rem) and (max-width: 63.999rem) {

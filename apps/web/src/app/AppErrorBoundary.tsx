@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button } from '../shared/components/primitives';
 import { LocaleContext } from '../shared/i18n/localeContext';
 import { translate } from '../shared/i18n/messages';
 
@@ -35,7 +36,10 @@ export class AppErrorBoundary extends Component<
       return (
         <main className="app-main" id="main-content" role="alert" tabIndex={-1}>
           <h1>{translate(this.context, 'appUnavailable')}</h1>
-          <p>{translate(this.context, 'reloadToRetry')}</p>
+          <p>{translate(this.context, 'errorRecoveryDescription')}</p>
+          <Button onClick={() => this.setState({ hasError: false })}>
+            {translate(this.context, 'retry')}
+          </Button>
         </main>
       );
     }

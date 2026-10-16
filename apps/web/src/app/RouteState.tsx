@@ -1,4 +1,5 @@
 import { Badge, Button, Card, EmptyState, ErrorState, Skeleton, Spinner } from '../shared/components/primitives';
+import type { MessageKey } from '../shared/i18n/messages';
 import { useTranslation } from '../shared/i18n/useTranslation';
 
 type RouteStateProps = {
@@ -7,6 +8,28 @@ type RouteStateProps = {
   description?: string;
   onRetry?: () => void;
 };
+
+export type OperationFailureKind =
+  | 'permission-denied'
+  | 'unsupported'
+  | 'interrupted'
+  | 'malformed-input'
+  | 'cloud-save-unconfirmed';
+
+const operationFailureMessages: Record<OperationFailureKind, readonly [MessageKey, MessageKey]> = {
+  'permission-denied': ['permissionFailureTitle', 'permissionFailureDescription'],
+  unsupported: ['unsupportedFailureTitle', 'unsupportedFailureDescription'],
+  interrupted: ['interruptedFailureTitle', 'interruptedFailureDescription'],
+  'malformed-input': ['invalidInputFailureTitle', 'invalidInputFailureDescription'],
+  'cloud-save-unconfirmed': ['cloudSaveFailureTitle', 'cloudSaveFailureDescription'],
+};
+
+/** Presentational failure mapping for feature services; it performs no operation or retry itself. */
+export function OperationFailureNotice({ kind }: { kind: OperationFailureKind }) {
+  const t = useTranslation();
+  const [titleKey, descriptionKey] = operationFailureMessages[kind];
+  return <ErrorState title={t(titleKey)}>{t(descriptionKey)}</ErrorState>;
+}
 
 export function RouteState({ state, title, description, onRetry }: RouteStateProps) {
   const t = useTranslation();

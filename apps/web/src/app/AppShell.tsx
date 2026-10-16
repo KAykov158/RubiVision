@@ -38,8 +38,22 @@ export function AppShell() {
   const t = useTranslation();
   const location = useLocation();
   const previousPath = useRef(location.pathname);
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | null>(() =>
+    typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : null,
+  );
   const [mobileNavigationPath, setMobileNavigationPath] = useState<string | null>(null);
   const mobileNavigationOpen = mobileNavigationPath === location.pathname;
+
+  useEffect(() => {
+    const handleOffline = () => setConnectionStatus('offline');
+    const handleOnline = () => setConnectionStatus('online');
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
     if (previousPath.current === location.pathname) return;
@@ -50,6 +64,9 @@ export function AppShell() {
   return (
     <>
       <a className="app-skip-link" href="#main-content">{t('skipToContent')}</a>
+      <p aria-live="polite" className={connectionStatus === 'offline' ? 'app-connectivity app-connectivity--offline' : 'rv-visually-hidden'} role={connectionStatus ? 'status' : undefined}>
+        {connectionStatus === 'offline' ? t('offlineNotice') : connectionStatus === 'online' ? t('connectionRestored') : ''}
+      </p>
       <div className="app-shell">
         <header className="app-header">
           <IconButton

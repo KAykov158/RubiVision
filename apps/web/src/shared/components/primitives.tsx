@@ -122,7 +122,8 @@ export function Dialog({ id, className = '', open, onClose, title, children }: D
 
         const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
           'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-        )).filter((element) => !element.hidden && getComputedStyle(element).visibility !== 'hidden');
+        )).filter((element) => !element.hidden && !element.closest('[aria-hidden="true"]')
+          && getComputedStyle(element).visibility !== 'hidden' && element.getClientRects().length > 0);
         const first = focusable[0];
         const last = focusable.at(-1);
 

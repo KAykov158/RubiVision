@@ -14,6 +14,23 @@ const formatTime = (milliseconds: number | null) => milliseconds === null ? 'DNF
 const listSolves = (services: Extract<ReturnType<typeof useAppServices>, { status: 'ready' }>, puzzle: PuzzleType | 'all') =>
   services.services.solves.list(puzzle === 'all' ? undefined : { puzzle });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+function isSolve(value: unknown): value is Solve {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string' && value.id.length > 0
+    && typeof value.sessionId === 'string'
+    && typeof value.scrambleId === 'string'
+    && puzzles.includes(value.puzzle as PuzzleType)
+    && Number.isInteger(value.rawTimeMs) && (value.rawTimeMs as number) >= 0
+    && ['NONE', 'PLUS_TWO', 'DNF'].includes(value.penalty as string)
+    && typeof value.startedAt === 'string' && Number.isFinite(Date.parse(value.startedAt))
+    && typeof value.completedAt === 'string' && Number.isFinite(Date.parse(value.completedAt))
+    && ['KEYBOARD', 'TOUCH', 'SMART_CUBE'].includes(value.timingSource as string)
+    && (value.notes === undefined || typeof value.notes === 'string');
+}
+
 export function SolvesPage() {
   const t = useTranslation();
   const appServices = useAppServices();
@@ -27,28 +44,29 @@ export function SolvesPage() {
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     if (appServices.status !== 'ready') { setState('unavailable'); return; }
     setState('loading');
     try {
-      const result = await listSolves(appServices, puzzle);
-      if (result.status === 'success') { setSolves(result.data); setState('ready'); }
-      else if (result.status === 'unavailable') setState('unavailable');
+      const result: unknown = await listSolves(appServices, puzzle);
+      if (id !== requestId.current) return;
+      if (!isRecord(result) || typeof result.status !== 'string') { setState('error'); return; }
+      if (result.status === 'success') {
+        if (!Array.isArray(result.data) || !result.data.every(isSolve)) { setState('error'); return; }
+        setSolves(result.data);
+        setState('ready');
+      } else if (result.status === 'unavailable') setState('unavailable');
+      else if (result.status === 'error') setState('error');
       else setState('error');
-    } catch { setState('error'); }
+    } catch {
+      if (id === requestId.current) setState('error');
+    }
   }, [appServices, puzzle]);
 
   useEffect(() => {
-    if (appServices.status !== 'ready') return;
-    let active = true;
-    const id = ++requestId.current;
-    void listSolves(appServices, puzzle).then((result) => {
-      if (!active || id !== requestId.current) return;
-      if (result.status === 'success') { setSolves(result.data); setState('ready'); }
-      else if (result.status === 'unavailable') setState('unavailable');
-      else setState('error');
-    }).catch(() => { if (active && id === requestId.current) setState('error'); });
-    return () => { active = false; };
-  }, [appServices, puzzle]);
+    void Promise.resolve().then(load);
+    return () => { requestId.current += 1; };
+  }, [load]);
 
   const visibleSolves = useMemo(() => solves
     .filter((solve) => (!from || solve.completedAt.slice(0, 10) >= from) && (!to || solve.completedAt.slice(0, 10) <= to))

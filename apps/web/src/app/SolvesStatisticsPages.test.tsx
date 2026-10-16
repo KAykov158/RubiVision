@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppServices, Solve } from '../shared/domain/contracts';
+import type { AppServices, Solve, SolveListFilter } from '../shared/domain/contracts';
 import { App } from './App';
 import { AppProviders } from './AppProviders';
 
@@ -63,11 +63,59 @@ describe('Solves page shell', () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it('treats malformed and unexpected service results as errors instead of rendering invalid records', async () => {
+    const list = vi.fn()
+      .mockResolvedValueOnce({ status: 'success', data: [{ id: 'incomplete' }] })
+      .mockResolvedValueOnce({ status: 'future-status', data: [] })
+      .mockResolvedValueOnce({ status: 'success', data: [] });
+    const user = userEvent.setup();
+    renderRoute('/solves', servicesFor(list));
+
+    expect(await screen.findByText('The solve service returned an error. Try again when it is available.')).toBeInTheDocument();
+    expect(screen.queryByRole('row')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('The solve service returned an error. Try again when it is available.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText(/No solve records are available/)).toBeInTheDocument();
+  });
+
+  it('handles a rejected solve request and exposes a working retry', async () => {
+    const list = vi.fn().mockRejectedValueOnce(new Error('network details are not shown'))
+      .mockResolvedValueOnce({ status: 'success', data: [] });
+    const user = userEvent.setup();
+    renderRoute('/solves', servicesFor(list));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The solve service returned an error.');
+    expect(screen.queryByText('network details are not shown')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText(/No solve records are available/)).toBeInTheDocument();
+  });
+
+  it('ignores a stale response after a new filter request has completed', async () => {
+    let resolveFirst: ((value: { status: 'success'; data: Solve[] }) => void) | undefined;
+    const list = vi.fn((filter?: SolveListFilter) => filter?.puzzle
+      ? Promise.resolve({ status: 'success' as const, data: [] })
+      : new Promise<{ status: 'success'; data: Solve[] }>((resolve) => { resolveFirst = resolve; }));
+    const user = userEvent.setup();
+    renderRoute('/solves', servicesFor(list));
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Puzzle' }), '333');
+    expect(await screen.findByText('No solve records yet')).toBeInTheDocument();
+    await act(async () => {
+      resolveFirst?.({ status: 'success', data: [solve({ id: 'stale' })] });
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByText('No solve records yet')).toBeInTheDocument();
+  });
+
   it('announces loading while a service request is pending', async () => {
     let resolve: ((value: { status: 'success'; data: Solve[] }) => void) | undefined;
     const list = vi.fn(() => new Promise<{ status: 'success'; data: Solve[] }>((done) => { resolve = done; }));
     renderRoute('/solves', servicesFor(list));
     expect(screen.getByRole('region', { name: 'Loading solve history' })).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
     resolve?.({ status: 'success', data: [] });
     await waitFor(() => expect(screen.getByText('No solve records yet')).toBeInTheDocument());
   });

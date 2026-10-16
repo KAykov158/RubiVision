@@ -8,6 +8,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     clearMocks: true,
     restoreMocks: true,
+    pool: 'vmThreads',
+    maxWorkers: 2,
+    sequence: { shuffle: false },
     exclude: [...configDefaults.exclude, '**/e2e/**'],
   },
 });

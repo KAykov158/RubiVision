@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify web app
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-diagnostics
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

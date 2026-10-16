@@ -62,7 +62,7 @@ describe('theme preference infrastructure', () => {
 
     view.unmount();
     render(<AppProviders services={createServices(preferences)}><><ThemeStatus /><ThemeSettings /></></AppProviders>);
-    expect(await screen.findByLabelText('Theme state')).toHaveTextContent('light:light');
+    await waitFor(() => expect(screen.getByLabelText('Theme state')).toHaveTextContent('light:light'));
   });
 
   it('ignores a corrupted persisted value and falls back to system without crashing', async () => {

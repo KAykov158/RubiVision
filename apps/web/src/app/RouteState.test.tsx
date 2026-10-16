@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { RouteState } from './RouteState';
+import { OperationFailureNotice, RouteState, type OperationFailureKind } from './RouteState';
 
 describe('route state placeholders', () => {
   it('announces loading and distinguishes an empty result', () => {
@@ -22,5 +22,16 @@ describe('route state placeholders', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('This page could not be loaded');
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['permission-denied', 'Permission denied'],
+    ['unsupported', 'Feature unsupported'],
+    ['interrupted', 'Operation interrupted'],
+    ['malformed-input', 'Input could not be processed'],
+    ['cloud-save-unconfirmed', 'Cloud save not confirmed'],
+  ] as const satisfies readonly (readonly [OperationFailureKind, string])[])('announces %s with a distinct honest outcome', (kind, title) => {
+    render(<OperationFailureNotice kind={kind} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(title);
   });
 });
