@@ -31,7 +31,7 @@ for (const pageSpec of pages) {
         expect(metrics.body, JSON.stringify(metrics)).toBeLessThanOrEqual(width);
         expect(metrics.main).toBeGreaterThan(0);
         expect(metrics.headerRight).toBeLessThanOrEqual(width + 1);
-        expect(metrics.background).toBe(theme === 'dark' ? '#101828' : '#f5f6f8');
+        expect(metrics.background).toBe(theme === 'dark' ? '#0c0e12' : '#f5f6f8');
         if (pageSpec.path === '/solves') {
           await expect(page.getByRole('combobox', { name: 'Puzzle' })).toBeVisible();
           await expect(page.getByRole('searchbox')).toBeVisible();

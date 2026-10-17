@@ -31,7 +31,7 @@ for (const route of pages) {
         expect(layout.body, JSON.stringify(layout)).toBeLessThanOrEqual(width);
         expect(layout.main).toBeGreaterThan(0);
         expect(layout.headerRight).toBeLessThanOrEqual(width + 1);
-        expect(layout.background).toBe(theme === 'dark' ? '#101828' : '#f5f6f8');
+        expect(layout.background).toBe(theme === 'dark' ? '#0c0e12' : '#f5f6f8');
 
         if (route.path === '/analyze') {
           await expect(page.getByRole('button', { name: 'Start camera recording' })).toBeDisabled();

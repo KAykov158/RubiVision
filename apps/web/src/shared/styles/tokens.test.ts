@@ -10,15 +10,15 @@ describe('design theme tokens', () => {
   it('provides the light semantic palette by default', () => {
     expect(tokensCss).toContain('--color-background: #f5f6f8;');
     expect(tokensCss).toContain('--color-text: #172033;');
-    expect(tokensCss).toContain('--color-accent: #174ea6;');
+    expect(tokensCss).toContain('--color-accent: #604bd8;');
     expect(tokensCss).toContain(':root[data-theme="light"]');
   });
 
   it('provides an explicit dark palette without changing semantic names', () => {
     expect(tokensCss).toContain(':root[data-theme="dark"]');
-    expect(tokensCss).toContain('--color-background: #101828;');
-    expect(tokensCss).toContain('--color-text: #f1f5f9;');
-    expect(tokensCss).toContain('--color-accent: #a9c7ff;');
+    expect(tokensCss).toContain('--color-background: #0c0e12;');
+    expect(tokensCss).toContain('--color-text: #f0f0f4;');
+    expect(tokensCss).toContain('--color-accent: #b5a8ff;');
     expect(tokensCss).toContain(':root[data-theme="system"]');
     expect(tokensCss).toContain('@media (prefers-color-scheme: dark)');
   });

@@ -11,7 +11,9 @@ describe('AppProviders', () => {
       </AppProviders>,
     );
 
-    expect(screen.getByRole('link', { name: 'RubiVision AI' })).toHaveAttribute('href', '/timer');
+    expect(screen.getAllByRole('link', { name: 'RubiVision AI' })).toHaveLength(2);
+    expect(screen.getAllByRole('link', { name: 'RubiVision AI' }).every((link) => link.getAttribute('href') === '/timer')).toBe(true);
     expect(screen.getByRole('heading', { name: 'Timer', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Profile' })).toHaveTextContent('Guest');
   });
 });

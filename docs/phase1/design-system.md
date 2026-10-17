@@ -1,5 +1,7 @@
 # RubiVision design tokens and UI primitives
 
+**Visual redesign update:** The original Prompt 4 values and contrast table in this document record the first palette and are superseded by the reference-led RubiVision redesign. The active colors are `#0c0e12` / `#14171c` / `#1a1d23` and violet `#b5a8ff` in dark mode, and `#f5f6f8` / white surfaces with violet `#604bd8` in light mode. The semantic token names, theme provider, and primitive contracts remain unchanged.
+
 Prompt 4 establishes a semantic CSS token layer and reusable, accessible React primitives. It contains no feature screens, data services, storage, authentication, or persistence. Supabase PostgreSQL remains the only planned persistent application database; this UI foundation introduces no database code.
 
 ## Theme and tokens
@@ -47,19 +49,20 @@ The selected foreground/background pairs were checked using the WCAG sRGB contra
 |---|---:|
 | Light body `#172033` on `#f5f6f8` | 15.04:1 |
 | Light muted `#475569` on `#ffffff` | 7.58:1 |
-| Light accent text `#ffffff` on `#174ea6` | 7.85:1 |
+| Light accent text `#ffffff` on `#604bd8` | 6.01:1 |
 | Light success `#17633c` on `#ffffff` | 7.28:1 |
 | Light warning `#744210` on `#ffffff` | 8.30:1 |
 | Light danger `#a12222` on `#ffffff` | 7.59:1 |
-| Dark body `#f1f5f9` on `#182335` | 14.41:1 |
-| Dark muted `#c4cfdd` on `#182335` | 10.01:1 |
-| Dark accent text `#101828` on `#a9c7ff` | 10.39:1 |
-| Dark success `#9ce3bd` on `#182335` | 10.62:1 |
-| Dark warning `#ffd18a` on `#182335` | 11.08:1 |
-| Dark danger `#ffb4ab` on `#182335` | 9.30:1 |
+| Dark body `#f0f0f4` on `#14171c` | 15.80:1 |
+| Dark muted `#b0b1bc` on `#14171c` | 8.43:1 |
+| Dark accent `#b5a8ff` on `#14171c` | 8.56:1 |
+| Dark accent `#b5a8ff` on `#29243d` | 7.08:1 |
+| Dark success `#8fd0ab` on `#14171c` | 10.07:1 |
+| Dark warning `#f2c878` on `#14171c` | 11.38:1 |
+| Dark danger `#ff929b` on `#14171c` | 8.41:1 |
 
 These palette pairs exceed the AA threshold. Status tones are foreground text colors and should be used on their corresponding theme surface; do not use color alone to convey a status.
 
 ## Responsive behavior and verification limits
 
-The shared page container has a 72rem maximum width and a 320px minimum document width. At narrow widths, content gutters and card/state padding shrink, and dialogs cap their width to the viewport. No feature chart or video layout is introduced here. Automated tests validate the breakpoint/content-width tokens and 320px minimum width, but jsdom does not calculate layout; verify actual overflow in a browser when the app shell is exercised in a later prompt.
+The shared content routes use a bounded reading width; the Timer workspace may use the full width remaining after the navigation rail so its center stage and session overview can coexist. At narrow widths, content gutters and card/state padding shrink, and dialogs cap their width to the viewport. No feature chart or video functionality is introduced here. Browser verification of the redesign is recorded in the current UI implementation handoff rather than inferred from jsdom.

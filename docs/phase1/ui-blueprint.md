@@ -6,6 +6,8 @@
 
 **Prompt 6 status:** The shared shell and six routes described below have since been implemented. The route-specific feature behavior remains unimplemented and is presented as unavailable; the original inventory below records the baseline when this blueprint was written.
 
+**Visual redesign amendment:** The original palette and shell composition below describe the approved pre-redesign baseline. The reference-led visual decisions in Section 10 supersede those visual values and layout details. Route contracts, accessibility, localization, service boundaries, persistence rules, and unavailable-state requirements remain active.
+
 ## 1. Current UI inventory
 
 ### Pages and routes
@@ -164,3 +166,44 @@ The page hierarchies below remain design contracts. Prompt 6 implements the shar
 | Contrast values include evidence and limitations | PASS | Contrast table and unverified pairs section | Prior palette ratios recorded; not full rendered-page audit |
 | No feature or persistence implementation added | PASS | Documentation-only change | Supabase remains the only persistent app database |
 | Browser-rendered appearance and responsive behavior | NOT VERIFIED | No browser session run for this planning step | Explicitly deferred to Prompt 6+ browser testing |
+
+## 10. Reference-led visual redesign amendment
+
+This amendment is the active visual direction for the Category 01 interface. The supplied speedcubing dashboard screenshot is the primary visual reference. It guides palette, visual hierarchy, spacing, and page composition; it does not authorize copying unrelated navigation, adding feature behavior, or displaying the screenshot's example times and records.
+
+### Visual system
+
+- Use the existing semantic custom properties in `src/shared/styles/tokens.css`; do not add a second theme or palette.
+- Dark mode uses a near-black charcoal canvas (`#0c0e12`), charcoal panels (`#14171c` / `#1a1d23`), restrained borders, warm-white text, and violet accents. The app canvas may use a very low-contrast dotted texture.
+- Light mode remains a low-glare neutral surface with dark text and a deeper violet accent. Focus indicators and text must remain legible against every token surface.
+- Use rounded rectangular cards and controls, subtle shadows, compact metadata, and tabular numerals for timer and statistic placeholders.
+- Existing light/dark/system behavior and OS theme-change handling remain authoritative. No browser storage may be added for theme settings.
+
+### Shell and page hierarchy
+
+- Desktop uses a compact branded navigation rail and exactly the six RubiVision routes: Timer, Solves, Statistics, Analyze, Challenges, and Settings. Each link has a decorative icon plus a visible text label; the active route has a violet treatment. The list itself has no browser bullet markers.
+- The desktop/tablet rail places a circular, generic Guest avatar and localized Guest label between branding and navigation. `ProfileSummary` accepts display name and optional image URL as presentation props; it has no Auth dependency and must only receive verified profile data when Category 02A adds the Supabase Auth/profile integration. The current shell must not imply a signed-in identity, level, or rank.
+- Mobile retains the compact top bar and the existing modal navigation drawer. Skip-link order and behavior, `aria-current`, route-change focus, Escape dismissal, focus trapping, and focus restoration remain unchanged.
+- Timer is the visual center of the app. Its controls sit above a centered scramble availability panel and a large, high-contrast timer display. Compact statistic cards and an explicitly unavailable visualization sit below. A right-side session rail contains session overview and recent-solve states on wide screens.
+- The scramble panel is directly above the timer readout. `ScrambleDisplay` accepts the existing `Scramble` domain contract and renders only supplied notation; the current page passes no scramble and keeps the localized unavailable message until Category 03 provides generation. Long notation uses a distinct, centered monospaced surface that wraps between moves and never clips. On mobile, scramble and timer remain first, followed by statistics and then the secondary session rail.
+- Solves, Statistics, Analyze, Challenges, and Settings retain their domain-specific content and state behavior while sharing the same card, heading, spacing, and token system.
+- All statistics, solve history, scramble, visualization, analysis, and challenge data remain empty, unavailable, loading, or error content until provided by the owning service. No example values may be rendered as a user's real data.
+
+### Responsive layout targets
+
+| Viewport | Active visual behavior |
+|---:|---|
+| 320px | Mobile bar and drawer; single-column Timer workspace; compact controls stack; session panels follow timer and stats; no page overflow. |
+| 375px | Mobile composition with touch-sized controls and secondary content below the timer. |
+| 768px | Labeled compact navigation rail; Timer content uses the available width and places the session rail below its main workspace. |
+| 1024px | Navigation rail, Timer workspace, and narrower session rail fit without clipping; secondary cards may use two columns. |
+| 1440px | Full three-region composition with the timer centered in the workspace and the session overview on the right. |
+
+These are implementation targets. Browser claims must be based on actual rendered checks and screenshots at each width in both light and dark modes. Reduced-motion and forced-colors rules remain in force. The architecture and service contracts above are unchanged; Supabase PostgreSQL remains the sole persistent application database.
+
+### Browser verification record
+
+- Chromium `156.0.8078.4`: the complete Playwright suite passed (77/77). Timer screenshots were captured at 320, 375, 768, 1024, and 1440 CSS pixels in both light and dark modes. The responsive tests also cover Solves, Statistics, Analyze, Challenges, and Settings.
+- Firefox `157.0` and WebKit `27.2`: the complete compatibility suite passed 153 tests with one skip. The skip is the already documented WebKit offline-event emulation limitation in `prompt10-resilience-accessibility.spec.ts`; the app's offline and online event handlers remain covered through dispatched browser events in other checks. A first six-worker run had a Firefox route-load timeout; the route test passed when isolated, and the full two-worker rerun passed.
+- Reviewed Chromium screenshots include `apps/web/test-results/timer-layout-Timer-layout--3f416-pping-at-320px-in-dark-mode/timer-dark-320.png`, `apps/web/test-results/timer-layout-Timer-layout--1033c-ping-at-375px-in-light-mode/timer-light-375.png`, `apps/web/test-results/timer-layout-Timer-layout--4c6fd-pping-at-768px-in-dark-mode/timer-dark-768.png`, `apps/web/test-results/timer-layout-Timer-layout--2fa4c-ping-at-1024px-in-dark-mode/timer-dark-1024.png`, and `apps/web/test-results/timer-layout-Timer-layout--03446-ping-at-1440px-in-dark-mode/timer-dark-1440.png` (plus the corresponding light/dark captures at every matrix width). Test-result screenshots are generated artifacts and are not project source files.
+- The composition follows the supplied reference but is not pixel-identical: the app uses its own navigation labels and icons, and all unavailable data remains explicitly unavailable. The screenshot's solve times, statistics, history rows, and charts are not reproduced. Mobile and tablet stack the session rail below the Timer workspace.
