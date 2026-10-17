@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const widths = [320, 375, 768, 1024, 1440];
+const widths = [320, 360, 375, 390, 430, 768, 1024, 1440];
 const themes = ['light', 'dark'] as const;
 const pages = [
   { path: '/solves', title: 'Solves', key: 'solves-table-wrap' },
@@ -25,6 +25,17 @@ for (const pageSpec of pages) {
           main: document.querySelector<HTMLElement>('#main-content')?.getBoundingClientRect().width ?? 0,
           headerRight: document.querySelector<HTMLElement>('.app-header')?.getBoundingClientRect().right ?? 0,
           chartOrTableWidth: document.querySelector<HTMLElement>('.solves-table-wrap, .statistics-chart')?.getBoundingClientRect().width ?? 0,
+          statisticsFilters: [...document.querySelectorAll<HTMLElement>('.statistics-filters .rv-field')].map((field) => {
+            const control = field.querySelector<HTMLSelectElement>('select');
+            const rect = field.getBoundingClientRect();
+            return {
+              width: rect.width,
+              height: rect.height,
+              controlHeight: control?.getBoundingClientRect().height ?? 0,
+              scrollWidth: field.scrollWidth,
+              disabled: control?.disabled ?? false,
+            };
+          }),
           background: getComputedStyle(document.documentElement).getPropertyValue('--color-background').trim(),
         }));
         expect(metrics.document, JSON.stringify(metrics)).toBeLessThanOrEqual(width);
@@ -37,6 +48,21 @@ for (const pageSpec of pages) {
           await expect(page.getByRole('searchbox')).toBeVisible();
           await expect(page.getByRole('heading', { name: 'Solve history unavailable' })).toBeVisible();
         } else {
+          expect(metrics.statisticsFilters).toHaveLength(3);
+          expect(new Set(metrics.statisticsFilters.map(({ width }) => Math.round(width))).size).toBe(1);
+          expect(new Set(metrics.statisticsFilters.map(({ height }) => Math.round(height))).size).toBe(1);
+          expect(metrics.statisticsFilters.every(({ controlHeight }) => controlHeight >= 44)).toBe(true);
+          expect(metrics.statisticsFilters.every(({ disabled }) => disabled)).toBe(true);
+          expect(metrics.statisticsFilters.every(({ scrollWidth, width }) => scrollWidth <= width + 1)).toBe(true);
+          const explanation = page.getByText('Filters unavailable until statistics services are connected', { exact: true });
+          await expect(explanation).toBeVisible();
+          await expect(explanation).toHaveCount(1);
+          for (const name of ['Puzzle', 'Session', 'Date range']) {
+            const filter = page.getByRole('combobox', { name });
+            await expect(filter).toBeDisabled();
+            await expect(filter.locator('option')).toHaveText('Unavailable');
+            await expect(filter).toHaveAttribute('aria-describedby', 'statistics-filters-hint');
+          }
           await expect(page.getByRole('table', { name: 'Accessible trend data table' })).toBeVisible();
           await expect(page.getByRole('heading', { name: 'Average of 5' })).toBeVisible();
         }
@@ -66,3 +92,22 @@ test('keyboard navigation moves between Solves and Statistics and browser back r
   await expect(page).toHaveURL(/\/solves$/);
   await expect(page.getByRole('heading', { name: 'Solves', level: 1 })).toBeVisible();
 });
+
+for (const theme of themes) {
+  for (const viewport of [{ width: 568, height: 320 }, { width: 740, height: 360 }]) {
+    test(`Statistics filters stay consistent in ${theme} landscape at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto('/statistics');
+      const filters = page.locator('.statistics-filters .rv-field');
+      const sizes = await filters.evaluateAll((fields) => fields.map((field) => {
+        const rect = field.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      }));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+      expect(new Set(sizes.map(({ width }) => Math.round(width))).size).toBe(1);
+      expect(new Set(sizes.map(({ height }) => Math.round(height))).size).toBe(1);
+      await page.screenshot({ path: testInfo.outputPath(`statistics-landscape-${theme}-${viewport.width}.png`) });
+    });
+  }
+}
