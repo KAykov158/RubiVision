@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const widths = [320, 375, 768, 1024, 1440];
+const widths = [320, 360, 375, 390, 430, 768, 1024, 1440];
 const themes = ['light', 'dark'] as const;
 
 for (const theme of themes) {
@@ -48,6 +48,31 @@ for (const theme of themes) {
           }
         }
         const visibleControls = [...document.querySelectorAll<HTMLElement>('.app-header button, .timer-page button, .timer-page select')].filter(visible);
+        const selectorSafety = [...document.querySelectorAll<HTMLElement>('.timer-page__selector-control')].map((control) => {
+          const select = control.querySelector<HTMLSelectElement>('select');
+          const icon = control.querySelector<HTMLElement>('.timer-page__selector-icon');
+          const chevron = control.querySelector<HTMLElement>('.timer-page__selector-chevron');
+          if (!select || !icon || !chevron) return null;
+          const selectRect = select.getBoundingClientRect();
+          const iconRect = icon.getBoundingClientRect();
+          const chevronRect = chevron.getBoundingClientRect();
+          const style = getComputedStyle(select);
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (context) context.font = style.font;
+          const selectedText = select.selectedOptions[0]?.textContent?.trim() ?? '';
+          const availableWidth = select.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+          const measuredTextWidth = context?.measureText(selectedText).width ?? 0;
+          return {
+            name: select.getAttribute('aria-label'),
+            displayedText: selectedText,
+            measuredTextWidth,
+            availableWidth,
+            iconClearance: Number.parseFloat(style.paddingLeft) - (iconRect.right - selectRect.left),
+            chevronClearance: Number.parseFloat(style.paddingRight) - (selectRect.right - chevronRect.left),
+            textFits: availableWidth >= measuredTextWidth,
+          };
+        });
         const outOfBoundsControls = visibleControls.flatMap((element) => {
           const { left, right } = element.getBoundingClientRect();
           return left < -1 || right > viewportWidth + 1 ? [element.getAttribute('aria-label') ?? element.textContent?.trim() ?? element.tagName] : [];
@@ -73,6 +98,7 @@ for (const theme of themes) {
           mainChildOverlaps: overlaps,
           outOfBoundsControls,
           undersizedTouchTargets,
+          selectorSafety,
           background: getComputedStyle(document.documentElement).getPropertyValue('--color-background').trim(),
           navigationListStyle: sidebar ? getComputedStyle(sidebar.querySelector('.app-navigation')!).listStyleType : null,
           profileVisible: sidebar ? visible(sidebar.querySelector<HTMLElement>('.app-sidebar__profile')!) : false,
@@ -91,6 +117,12 @@ for (const theme of themes) {
       expect(layout.mainChildOverlaps, JSON.stringify(layout)).toEqual([]);
       expect(layout.outOfBoundsControls, JSON.stringify(layout)).toEqual([]);
       expect(layout.undersizedTouchTargets, JSON.stringify(layout)).toEqual([]);
+      expect(layout.selectorSafety, JSON.stringify(layout)).toHaveLength(2);
+      for (const selector of layout.selectorSafety) {
+        expect(selector?.iconClearance, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
+        expect(selector?.chevronClearance, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
+        expect(selector?.textFits, JSON.stringify(layout)).toBe(true);
+      }
       expect(layout.background).toBe(theme === 'dark' ? '#0c0e12' : '#f5f6f8');
       expect(layout.navigationListStyle).toBe('none');
       expect(layout.profileVisible).toBe(width >= 768);
@@ -167,7 +199,9 @@ for (const theme of themes) {
       await expect(session).toBeVisible();
       await expect(session).toBeDisabled();
       await expect(session).toHaveValue('');
-      await expect(session.locator('option')).toHaveText('Sessions unavailable');
+      await expect(session.locator('option')).toHaveText('Unavailable');
+      await expect(session).toHaveAttribute('aria-describedby', 'timer-session-hint');
+      await expect(page.locator('#timer-session-hint')).toBeVisible();
 
       for (const value of ['222', '333', '444', '555', '666', '777']) {
         await puzzle.selectOption(value);
@@ -229,6 +263,132 @@ test('native mobile navigation traps focus, closes on Escape, and restores focus
   await expect(menu).toBeFocused();
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
 });
+
+test('short mobile navigation drawer scrolls its links while keeping the close button visible', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 320 });
+  await page.goto('/timer');
+  const menu = page.getByRole('button', { name: 'Open navigation menu' });
+  await menu.click();
+  const drawer = page.getByRole('dialog', { name: 'Navigation' });
+  const close = drawer.getByRole('button', { name: 'Close dialog' });
+  const content = drawer.locator('.rv-dialog__content');
+
+  await expect(drawer).toBeVisible();
+  await expect(close).toBeVisible();
+  await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
+  const scrollable = await content.evaluate((element) => element.scrollHeight > element.clientHeight);
+  expect(scrollable).toBe(true);
+  await content.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect(close).toBeVisible();
+  const closeWithinViewport = await close.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.top >= 0 && rect.bottom <= document.documentElement.clientHeight;
+  });
+  expect(closeWithinViewport).toBe(true);
+
+  await close.click();
+  await expect(drawer).not.toBeVisible();
+  await expect(menu).toBeFocused();
+  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+const drawerViewports = [
+  { width: 320, height: 568 },
+  { width: 360, height: 740 },
+  { width: 375, height: 812 },
+  { width: 390, height: 844 },
+  { width: 430, height: 900 },
+  { width: 568, height: 320 },
+  { width: 740, height: 360 },
+];
+
+for (const theme of themes) {
+  for (const viewport of drawerViewports) {
+    test(`navigation drawer fits ${viewport.width}x${viewport.height} in ${theme} theme`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto('/timer');
+      const menu = page.getByRole('button', { name: 'Open navigation menu' });
+      await menu.click();
+      const dialog = page.getByRole('dialog', { name: 'Navigation' });
+      await expect(dialog).toBeVisible();
+
+      const layout = await dialog.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const header = element.querySelector<HTMLElement>('.rv-dialog__header')!.getBoundingClientRect();
+        const close = element.querySelector<HTMLElement>('.rv-dialog__header button')!.getBoundingClientRect();
+        const content = element.querySelector<HTMLElement>('.rv-dialog__content')!;
+        const links = [...element.querySelectorAll<HTMLElement>('.app-navigation__link')].map((link) => link.getBoundingClientRect().height);
+        const backdrop = getComputedStyle(element, '::backdrop').backgroundColor;
+        const alpha = Number(backdrop.match(/,\s*([\d.]+)\)$/)?.[1] ?? 0);
+        return {
+          drawer: { left: rect.left, top: rect.top, right: rect.right, width: rect.width, height: rect.height },
+          header: { left: header.left, right: header.right, top: header.top, bottom: header.bottom },
+          close: { left: close.left, right: close.right, top: close.top, bottom: close.bottom, width: close.width, height: close.height },
+          contentScrollable: content.scrollHeight > content.clientHeight,
+          bodyOverflow: document.body.style.overflow,
+          links,
+          backdrop,
+          backdropAlpha: alpha,
+          documentWidth: document.documentElement.scrollWidth,
+        };
+      });
+
+      expect(layout.drawer.left).toBe(0);
+      expect(layout.drawer.top).toBe(0);
+      expect(layout.drawer.height).toBe(viewport.height);
+      expect(layout.drawer.width).toBeLessThanOrEqual(Math.min(256, viewport.width - 64) + 1);
+      expect(layout.drawer.right).toBeLessThan(viewport.width);
+      expect(layout.header.left).toBeGreaterThanOrEqual(layout.drawer.left);
+      expect(layout.header.right).toBeLessThanOrEqual(layout.drawer.right);
+      expect(layout.close.left).toBeGreaterThanOrEqual(layout.drawer.left);
+      expect(layout.close.right).toBeLessThanOrEqual(layout.drawer.right);
+      expect(layout.close.width).toBeGreaterThanOrEqual(44);
+      expect(layout.close.height).toBeGreaterThanOrEqual(44);
+      expect(layout.bodyOverflow).toBe('hidden');
+      expect(layout.backdropAlpha).toBeCloseTo(0.62, 2);
+      expect(layout.documentWidth).toBeLessThanOrEqual(viewport.width);
+      expect(layout.links.every((height) => height >= 44)).toBe(true);
+      if (viewport.height <= 360) expect(layout.contentScrollable).toBe(true);
+
+      const startScroll = await page.evaluate(() => window.scrollY);
+      await page.mouse.move(viewport.width - 8, viewport.height / 2);
+      await page.mouse.wheel(0, 360);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(startScroll);
+      await page.screenshot({ path: testInfo.outputPath(`drawer-${theme}-${viewport.width}x${viewport.height}.png`) });
+
+      await page.keyboard.press('Escape');
+      await expect(dialog).not.toBeVisible();
+      await expect(menu).toBeFocused();
+      await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+    });
+  }
+}
+
+for (const viewport of [{ width: 568, height: 320 }, { width: 740, height: 360 }]) {
+  test(`timer selectors remain usable in landscape at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/timer');
+    const puzzle = page.getByRole('combobox', { name: 'Puzzle type' });
+    const session = page.getByRole('combobox', { name: 'Session' });
+    await expect(puzzle).toBeVisible();
+    await expect(session).toBeDisabled();
+    const layout = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      controlsFit: [...document.querySelectorAll<HTMLElement>('.timer-page__selector-control')].every((element) => {
+        const rect = element.getBoundingClientRect();
+        const bounds = element.parentElement!.getBoundingClientRect();
+        return rect.left >= bounds.left && rect.right <= bounds.right;
+      }),
+      toolbarScrollWidth: document.querySelector<HTMLElement>('.timer-page__toolbar')!.scrollWidth,
+      toolbarWidth: document.querySelector<HTMLElement>('.timer-page__toolbar')!.clientWidth,
+    }));
+    expect(layout.documentWidth).toBeLessThanOrEqual(viewport.width);
+    expect(layout.controlsFit).toBe(true);
+    expect(layout.toolbarScrollWidth).toBeLessThanOrEqual(layout.toolbarWidth + 1);
+  });
+}
 
 test('theme settings override system theme while system mode follows it', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 900 });

@@ -135,6 +135,21 @@ describe('Statistics page shell', () => {
     expect(screen.getByRole('combobox', { name: 'Puzzle' })).toBeDisabled();
   });
 
+  it('keeps unavailable filters concise, disabled, and described by one shared explanation', () => {
+    renderRoute('/statistics');
+
+    const explanation = screen.getByText('Filters unavailable until statistics services are connected');
+    expect(explanation).toHaveAttribute('id', 'statistics-filters-hint');
+    expect(screen.getAllByText('Filters unavailable until statistics services are connected')).toHaveLength(1);
+
+    for (const name of ['Puzzle', 'Session', 'Date range']) {
+      const filter = screen.getByRole('combobox', { name });
+      expect(filter).toBeDisabled();
+      expect(filter).toHaveAttribute('aria-describedby', 'statistics-filters-hint');
+      expect(within(filter).getByRole('option')).toHaveTextContent('Unavailable');
+    }
+  });
+
   it('supports route navigation between Solves and Statistics', async () => {
     const user = userEvent.setup();
     renderRoute('/solves');
