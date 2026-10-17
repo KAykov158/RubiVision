@@ -61,11 +61,16 @@ for (const theme of themes) {
           const context = canvas.getContext('2d');
           if (context) context.font = style.font;
           const selectedText = select.selectedOptions[0]?.textContent?.trim() ?? '';
+          const availableWidth = select.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+          const measuredTextWidth = context?.measureText(selectedText).width ?? 0;
           return {
+            name: select.getAttribute('aria-label'),
+            displayedText: selectedText,
+            measuredTextWidth,
+            availableWidth,
             iconClearance: Number.parseFloat(style.paddingLeft) - (iconRect.right - selectRect.left),
             chevronClearance: Number.parseFloat(style.paddingRight) - (selectRect.right - chevronRect.left),
-            textFits: select.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight)
-              >= (context?.measureText(selectedText).width ?? 0),
+            textFits: availableWidth >= measuredTextWidth,
           };
         });
         const outOfBoundsControls = visibleControls.flatMap((element) => {
@@ -194,7 +199,9 @@ for (const theme of themes) {
       await expect(session).toBeVisible();
       await expect(session).toBeDisabled();
       await expect(session).toHaveValue('');
-      await expect(session.locator('option')).toHaveText('Sessions unavailable');
+      await expect(session.locator('option')).toHaveText('Unavailable');
+      await expect(session).toHaveAttribute('aria-describedby', 'timer-session-hint');
+      await expect(page.locator('#timer-session-hint')).toBeVisible();
 
       for (const value of ['222', '333', '444', '555', '666', '777']) {
         await puzzle.selectOption(value);

@@ -36,7 +36,7 @@ export const messages = {
     timerPuzzleHint: 'Choose a puzzle for the timer workspace. This selection is only for this page view.',
     timerSessionLabel: 'Session',
     timerSessionEmpty: 'No session selected',
-    timerSessionUnavailableOption: 'Sessions unavailable',
+    timerSessionUnavailableOption: 'Unavailable',
     timerSessionUnavailable: 'Session selection will be available when session services are configured.',
     timerSelectedPuzzle: 'Selected puzzle',
     timerScrambleTitle: 'Current scramble',

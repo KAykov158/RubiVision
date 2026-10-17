@@ -45,7 +45,9 @@ describe('Timer page shell', () => {
     expect(within(puzzle).getAllByRole('option')).toHaveLength(6);
     expect(puzzle).toHaveValue('333');
     expect(session).toBeDisabled();
-    expect(within(session).getByRole('option')).toHaveTextContent('Sessions unavailable');
+    expect(within(session).getByRole('option')).toHaveTextContent('Unavailable');
+    expect(session).toHaveAttribute('aria-describedby', 'timer-session-hint');
+    expect(screen.getByText('Session selection will be available when session services are configured.')).toBeInTheDocument();
     expect(document.querySelectorAll('.timer-page__selector-icon')).toHaveLength(2);
     puzzle.focus();
     await user.selectOptions(puzzle, '444');
