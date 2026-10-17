@@ -1,0 +1,26 @@
+# Dependencies and generated build output
+node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+apps/web/node_modules/.tmp/
+**/playwright-report/
+**/test-results/
+**/.playwright/
+**/playwright-profile*/
+**/tmp-browser-profile*/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local editor and operating-system files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

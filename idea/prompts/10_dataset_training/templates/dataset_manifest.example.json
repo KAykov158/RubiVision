@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_version": "example-only",
+  "recordings": [
+    {
+      "recording_id": "00000000-0000-4000-8000-000000000001",
+      "participant_id": "participant-pseudonym",
+      "session_id": "00000000-0000-4000-8000-000000000002",
+      "duration_ms": 12000,
+      "consent_status": "granted",
+      "training_permission": true,
+      "upload_permission": false,
+      "sha256": "REPLACE_WITH_REAL_HASH",
+      "label_guide_version": "1.0.0",
+      "annotations": []
+    }
+  ]
+}
