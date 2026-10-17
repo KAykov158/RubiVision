@@ -1,0 +1,4 @@
+project_id = "rubivision"
+
+[db.seed]
+enabled = false
