@@ -1,6 +1,6 @@
 # Category 02 database foundation
 
-Status: **implemented as SQL and tests; local PostgreSQL execution and generated types pending**. The Supabase CLI and Docker were not found on `PATH` during this session. No hosted project was linked or changed.
+Status: **implemented as SQL and tests; local PostgreSQL execution and generated types pending**. Docker Desktop, WSL, and the project-local Supabase CLI were installed on 2026-10-17. The local engine remains blocked by disabled firmware virtualization and a required Windows restart. No hosted project has been linked or changed.
 
 ## Scope and source of truth
 
@@ -26,17 +26,43 @@ Every public user-owned table enables RLS and revokes all table privileges from 
 
 ## Disposable local verification
 
-Install a [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) compatible with this project and a running Docker-compatible runtime. Run from the repository root:
+### Windows prerequisites
 
-```text
-supabase start
-supabase db reset
-supabase test db
-node scripts/generate-db-types.mjs --write
-node scripts/generate-db-types.mjs --check
+Use Windows 11 Pro 23H2 or newer, or another [Docker Desktop supported Windows version](https://docs.docker.com/desktop/setup/install/windows-install/). Docker's WSL 2 backend needs WSL 2.1.5 or newer, CPU virtualization enabled in BIOS/UEFI, a processor with SLAT, and at least 8 GB RAM. The Windows Subsystem for Linux and Virtual Machine Platform features must be enabled. Installing those features may require administrator rights and a restart. Docker Desktop setup is a machine-level prerequisite, not a repository migration.
+
+Install Docker Desktop from its official `Docker.DockerDesktop` winget package, then complete Windows setup and verify the engine:
+
+```powershell
+winget install --id Docker.DockerDesktop -e --source winget
+wsl --status
+wsl --version
+docker version
+docker info
+docker ps
 ```
 
-`supabase db reset` above targets **only the disposable local stack** and destroys its data. Never use `--linked` or a remote database URL for these commands. The SQL tests create synthetic Auth users and records inside rolled-back transactions; no production data or media is needed. Run `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd test`, and `npm.cmd run build` from `apps/web` on Windows (or `npm` on other systems). After a fresh local migration and type generation pass, commit the generated `apps/web/src/shared/database/database.types.ts` artifact separately from domain models. The check command must report no drift.
+If WSL is missing, an administrator can run `wsl --install` **after approving the Windows feature changes**, then restart Windows when prompted. If `VirtualizationFirmwareEnabled` is false, enable Intel VT-x or AMD-V in BIOS/UEFI before expecting Docker's engine to start. Do not run database commands merely because `docker --version` prints a CLI version; `docker info` and `docker ps` must reach a running engine.
+
+On the setup machine, Docker Desktop 4.95.0 and WSL 3.0.3.0 are installed. The approved elevated `wsl --install --no-distribution` command has been run. Windows still reports that WSL 2 cannot start while virtualization is disabled. Enable CPU virtualization in BIOS/UEFI, restart Windows, then confirm the Virtual Machine Platform feature is enabled if `wsl --status` still reports it missing. Start Docker Desktop and complete its first-run setup before local database verification.
+
+### CLI and local database
+
+The official [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) is pinned as a root dev dependency. From the repository root run `npm.cmd ci` on Windows (or `npm ci` elsewhere), then verify `npx.cmd --no-install supabase --version`. `npm.cmd` avoids PowerShell script execution-policy errors from `npm.ps1`.
+
+Run these commands **from the repository root** only after confirming the Docker engine is operational and no remote project is linked:
+
+```text
+npx.cmd supabase start
+npx.cmd supabase db reset --local
+npx.cmd supabase test db
+npm.cmd run db:types
+npm.cmd run db:types:check
+npx.cmd supabase stop
+```
+
+`supabase db reset --local` above targets **only the disposable local stack** and destroys its data. Never use `--linked` or a remote database URL for these commands. The SQL tests create synthetic Auth users and records inside rolled-back transactions; no production data or media is needed. Run `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd test`, and `npm.cmd run build` from `apps/web` on Windows (or `npm` on other systems). After a fresh local migration and type generation pass, commit the generated `apps/web/src/shared/database/database.types.ts` artifact separately from domain models. The check command must report no drift.
+
+If `supabase start` cannot connect to Docker, finish Docker Desktop onboarding and verify `docker info` before retrying. If WSL reports a missing kernel or components, complete Windows Update or `wsl --update` as an administrator and restart if required. If Supabase reports port conflicts, identify the process on the reported port before changing `supabase/config.toml`. If a CLI command tries to create `%USERPROFILE%\.supabase` and fails inside a restricted shell, use a normal user terminal; do not put credentials or CLI state in the repository.
 
 `node scripts/check-db-static.mjs` provides a limited preflight when PostgreSQL is unavailable: it checks table coverage, RLS/revoke statements, and pgTAP assertion counts. It does **not** parse or execute SQL and cannot establish migration or security correctness.
 

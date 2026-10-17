@@ -14,14 +14,17 @@ if (mode !== '--write' && mode !== '--check') {
 
 let generated;
 try {
-  generated = execSync('supabase gen types typescript --local --schema public', {
+  const command = process.platform === 'win32'
+    ? 'npm.cmd exec --no -- supabase gen types typescript --local --schema public'
+    : 'npm exec --no -- supabase gen types typescript --local --schema public';
+  generated = execSync(command, {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 8 * 1024 * 1024,
   }).replace(/\r\n/g, '\n');
 } catch {
-  console.error('Type generation failed. Start a disposable local Supabase stack and install the Supabase CLI.');
+  console.error('Type generation failed. Run npm ci and start a disposable local Supabase stack before retrying.');
   process.exit(1);
 }
 
