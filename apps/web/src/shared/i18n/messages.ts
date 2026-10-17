@@ -115,6 +115,7 @@ export const messages = {
     statisticsFilters: 'Statistics scope',
     statisticsPuzzleFilter: 'Puzzle',
     statisticsSessionFilter: 'Session',
+    statisticsFilterUnavailableOption: 'Unavailable',
     statisticsFiltersUnavailable: 'Filters unavailable until statistics services are connected',
     statisticsDateRange: 'Date range',
     statisticsSummary: 'Summary',

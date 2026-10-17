@@ -15,10 +15,13 @@ export function StatisticsPage() {
     <header className="data-page__header"><div><h1>{t('statisticsTitle')}</h1><p className="app-page-description">{t('statisticsDescription')}</p></div><p className="statistics-page__session">{t('statisticsSessionContext')}</p></header>
     <section aria-labelledby="statistics-filters-title" className="data-page__section">
       <h2 id="statistics-filters-title">{t('statisticsFilters')}</h2>
-      <div className="statistics-filters">
-        <Select id="statistics-puzzle" label={t('statisticsPuzzleFilter')} disabled value=""><option value="">{t('statisticsFiltersUnavailable')}</option></Select>
-        <Select id="statistics-session" label={t('statisticsSessionFilter')} disabled value=""><option value="">{t('statisticsFiltersUnavailable')}</option></Select>
-        <fieldset className="statistics-date-filter" disabled><legend>{t('statisticsDateRange')}</legend><p>{t('statisticsFiltersUnavailable')}</p></fieldset>
+      <div className="statistics-filter-group">
+        <div className="statistics-filters">
+          <Select id="statistics-puzzle" label={t('statisticsPuzzleFilter')} aria-describedby="statistics-filters-hint" disabled value=""><option value="">{t('statisticsFilterUnavailableOption')}</option></Select>
+          <Select id="statistics-session" label={t('statisticsSessionFilter')} aria-describedby="statistics-filters-hint" disabled value=""><option value="">{t('statisticsFilterUnavailableOption')}</option></Select>
+          <Select id="statistics-date-range" label={t('statisticsDateRange')} aria-describedby="statistics-filters-hint" disabled value=""><option value="">{t('statisticsFilterUnavailableOption')}</option></Select>
+        </div>
+        <p className="statistics-filters__hint" id="statistics-filters-hint">{t('statisticsFiltersUnavailable')}</p>
       </div>
     </section>
     <section aria-labelledby="statistics-summary-title" className="data-page__section">

@@ -108,6 +108,16 @@ export function Dialog({ id, className = '', open, onClose, title, children }: D
     }
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   return (
     <dialog
       id={id}
