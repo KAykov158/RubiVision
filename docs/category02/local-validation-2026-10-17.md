@@ -1,5 +1,7 @@
 # Category 02 local validation checkpoint — 2026-10-17
 
+Historical checkpoint. Category 02 was validated on 2026-10-18; see [the current record](local-validation-2026-10-18.md).
+
 Branch: `category-02-database`. No hosted Supabase project was linked, reset, or changed. No branch was pushed or merged.
 
 ## Completed setup

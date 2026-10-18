@@ -1,6 +1,6 @@
 # Category 02 database foundation
 
-Status: **implemented as SQL and tests; local PostgreSQL execution and generated types pending**. Docker Desktop, WSL, and the project-local Supabase CLI were installed on 2026-10-17. The local engine remains blocked by disabled firmware virtualization and a required Windows restart. No hosted project has been linked or changed.
+Status: **locally validated and ready for staging review**. On 2026-10-18, both migrations passed a clean local reset, all 59 pgTAP assertions passed, generated types were reproducible, and the application regression suite passed. See [the validation record](local-validation-2026-10-18.md). No hosted project has been linked or changed.
 
 ## Scope and source of truth
 
@@ -43,7 +43,7 @@ docker ps
 
 If WSL is missing, an administrator can run `wsl --install` **after approving the Windows feature changes**, then restart Windows when prompted. If `VirtualizationFirmwareEnabled` is false, enable Intel VT-x or AMD-V in BIOS/UEFI before expecting Docker's engine to start. Do not run database commands merely because `docker --version` prints a CLI version; `docker info` and `docker ps` must reach a running engine.
 
-On the setup machine, Docker Desktop 4.95.0 and WSL 3.0.3.0 are installed. The approved elevated `wsl --install --no-distribution` command has been run. Windows still reports that WSL 2 cannot start while virtualization is disabled. Enable CPU virtualization in BIOS/UEFI, restart Windows, then confirm the Virtual Machine Platform feature is enabled if `wsl --status` still reports it missing. Start Docker Desktop and complete its first-run setup before local database verification.
+On the validation machine, Docker Desktop 4.95.0 runs a Linux engine through the `docker-desktop` WSL 2 distribution. A separate Ubuntu distribution was not required. The local analytics log collector could not reach Docker Desktop's internal TCP endpoint, so `[analytics] enabled = false` in `supabase/config.toml`; database, API, Auth, and other enabled services remained healthy and all database tests passed.
 
 ### CLI and local database
 
