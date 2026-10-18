@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ReactNode } from 'react';
 import { Button } from '../shared/components/primitives';
 import { LocaleContext } from '../shared/i18n/localeContext';
 import { translate } from '../shared/i18n/messages';
@@ -24,10 +24,10 @@ export class AppErrorBoundary extends Component<
     return { hasError: true };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo) {
-    // Keep the failure visible in development without logging user data.
+  override componentDidCatch() {
+    // Keep the failure visible in development without logging exception details.
     if (import.meta.env.DEV) {
-      console.error('Application render failed.', error, info.componentStack);
+      console.error('Application render failed.');
     }
   }
 

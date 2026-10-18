@@ -1,6 +1,6 @@
 # Category 02 database foundation
 
-Status: **locally validated and ready for staging review**. On 2026-10-18, both migrations passed a clean local reset, all 59 pgTAP assertions passed, generated types were reproducible, and the application regression suite passed. See [the validation record](local-validation-2026-10-18.md). No hosted project has been linked or changed.
+Status: **promoted to `main` through [PR #6](https://github.com/KAykov158/RubiVision/pull/6) on 2026-10-18**. Both migrations passed a clean local reset, all 59 pgTAP assertions passed, generated types were reproducible, and the application regression suite passed. See [the validation record](local-validation-2026-10-18.md). No hosted project has been linked or changed.
 
 ## Scope and source of truth
 
