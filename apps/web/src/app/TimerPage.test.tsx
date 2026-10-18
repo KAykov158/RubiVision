@@ -146,7 +146,7 @@ describe('timer-to-cloud-save slice', () => {
     expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
 
     expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toBeVisible();
-    expect(screen.getByRole('combobox', { name: 'Session' })).toHaveTextContent('Sign in for sessions');
+    expect(screen.getByRole('combobox', { name: 'Session' })).toHaveTextContent('Sign in');
     expect(screen.queryByRole('textbox', { name: 'Exact scramble snapshot' })).not.toBeInTheDocument();
     expect(screen.getByText(testScramble.notation)).toBeInTheDocument();
     const control = screen.getByRole('button', { name: 'Timer control' });

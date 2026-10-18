@@ -321,7 +321,7 @@ for (const theme of themes) {
       await expect(session).toBeVisible();
       await expect(session).toBeDisabled();
       await expect(session).toHaveValue('');
-      await expect(session.locator('option')).toHaveText('Sign in for sessions');
+      await expect(session.locator('option')).toHaveText('Sign in');
       await expect(session).toHaveAttribute('aria-describedby', 'timer-session-hint');
       await expect(page.locator('#timer-session-hint')).toBeVisible();
 

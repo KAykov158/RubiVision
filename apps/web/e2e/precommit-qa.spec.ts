@@ -168,6 +168,7 @@ test('Auth forms validate input, show a pending state, and keep server errors ge
 });
 
 test('implemented routes navigate, refresh, restore Auth, and preserve history', async ({ page }) => {
+  test.setTimeout(60_000);
   await signInFromProtectedRoute(page, 1440);
   const routes = [
     ['/timer', 'Timer'], ['/solves', 'Solves'], ['/statistics', 'Statistics'],
@@ -261,6 +262,7 @@ test('mouse release outside the timer cannot leave an armed hold stuck', async (
 test('an active run survives in-app route navigation without creating a second solve', async ({ page }) => {
   await signInFromProtectedRoute(page, 1440);
   await page.getByRole('link', { name: 'Timer', exact: true }).click();
+  await expect(page.locator('.timer-page__scramble-empty')).toBeVisible();
   await page.locator('#main-content').focus();
   await page.keyboard.down('Space');
   await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--armed/u);

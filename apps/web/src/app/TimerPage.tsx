@@ -347,7 +347,7 @@ export function TimerPageShell() {
               onChange={(event) => auth.user && setSessionSelection({ ownerId: auth.user.id, puzzle, id: event.currentTarget.value })}
             >
               {sessionStatus === 'loading' && <option value="">Loading sessions…</option>}
-              {sessionStatus === 'signed-out' && <option value="">Sign in for sessions</option>}
+              {sessionStatus === 'signed-out' && <option value="">Sign in</option>}
               {sessionStatus === 'unavailable' && <option value="">Sessions unavailable</option>}
               {sessionStatus === 'error' && <option value="">Could not load sessions</option>}
               {sessionStatus === 'ready' && sessions.length === 0 && <option value="">No sessions for this puzzle</option>}

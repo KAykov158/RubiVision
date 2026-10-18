@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 import { App } from '../../app/App';
 import { AuthProvider } from './AuthProvider';
 import { LocaleProvider } from '../../shared/i18n/LocaleProvider';
+import { TimerCompletionContext, type TimerCompletionContextValue } from '../timer/timerCompletionContext';
 
 const mockSupabase = vi.hoisted(() => ({
   auth: {
@@ -32,11 +33,23 @@ const testUser = {
 
 let authListener: ((event: AuthChangeEvent, session: Session | null) => void) | null;
 
+const testTimerCompletion: TimerCompletionContextValue = {
+  pending: null,
+  activeRun: null,
+  elapsedMs: 0,
+  complete: vi.fn(),
+  startTimer: vi.fn(),
+  stopTimer: vi.fn(),
+  retry: vi.fn(),
+};
+
 function renderApp(path: string) {
   return render(
     <LocaleProvider>
       <AuthProvider>
-        <MemoryRouter initialEntries={[path]}><App /></MemoryRouter>
+        <TimerCompletionContext.Provider value={testTimerCompletion}>
+          <MemoryRouter initialEntries={[path]}><App /></MemoryRouter>
+        </TimerCompletionContext.Provider>
       </AuthProvider>
     </LocaleProvider>,
   );
