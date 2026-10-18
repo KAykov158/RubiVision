@@ -6,10 +6,7 @@ insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111', 'category02-owner@example.test'),
   ('22222222-2222-2222-2222-222222222222', 'category02-other@example.test');
 
-insert into public.profiles (id, display_name)
-values ('11111111-1111-1111-1111-111111111111', 'Owner');
-insert into public.user_settings (user_id)
-values ('11111111-1111-1111-1111-111111111111');
+-- The Category 02A trusted auth trigger creates profiles and settings on signup.
 insert into public.sessions (id, owner_id, puzzle, name) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', '333', 'Main'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', '333', 'Other'),

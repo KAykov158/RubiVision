@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router';
-import { Dialog, IconButton } from '../shared/components/primitives';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Button, Dialog, IconButton } from '../shared/components/primitives';
 import { ProfileSummary } from '../shared/components/ProfileSummary';
 import { useTranslation } from '../shared/i18n/useTranslation';
+import { useAuth } from '../features/auth/authContext';
+import { isSupabaseConfigured } from '../shared/supabase/client';
+
+function getUserDisplayName(user: ReturnType<typeof useAuth>['user']) {
+  const metadata = user?.user_metadata;
+  for (const value of [metadata?.display_name, metadata?.full_name, metadata?.name]) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return user?.email?.trim() || null;
+}
 
 const navigationItems = [
   { to: '/timer', label: 'navigationTimer', icon: 'timer' },
@@ -20,7 +30,7 @@ function NavigationIcon({ name }: { name: (typeof navigationItems)[number]['icon
     statistics: <><path d="M4 19V5M4 19h17" /><path d="m7 15 4-4 3 2 5-7" /></>,
     analyze: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5M8 11l2-2 2 2 3-3" /></>,
     challenges: <><path d="M8 4h8v3a4 4 0 0 1-8 0zM12 11v5M8 20h8M10 16h4" /><path d="M8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
+    settings: <><circle cx="12" cy="12" r="7.1" /><circle cx="12" cy="12" r="3.1" /><path d="M12 2v2.8m0 14.4V22M2 12h2.8m14.4 0H22M4.93 4.93l1.98 1.98m10.18 10.18 1.98 1.98m0-14.14-1.98 1.98M6.91 17.09l-1.98 1.98" /></>,
   };
 
   return <svg aria-hidden="true" className="app-navigation__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{paths[name]}</svg>;
@@ -51,13 +61,33 @@ function PrimaryNavigation({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const t = useTranslation();
+  const auth = useAuth();
+  const userDisplayName = getUserDisplayName(auth.user);
+  const profileDisplayName = userDisplayName
+    ?? (auth.status === 'loading'
+      ? t('loading')
+      : auth.user
+        ? t('sidebarAccountLabel')
+        : t('sidebarGuestLabel'));
+  const navigate = useNavigate();
   const location = useLocation();
   const previousPath = useRef(location.pathname);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | null>(() =>
     typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : null,
   );
   const [mobileNavigationPath, setMobileNavigationPath] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const mobileNavigationOpen = mobileNavigationPath === location.pathname;
+
+  async function handleSignOut() {
+    try {
+      const error = await auth.signOut();
+      if (error) setAuthMessage(error);
+      else navigate('/timer');
+    } catch {
+      setAuthMessage('Sign out could not be completed. Check your connection and try again.');
+    }
+  }
 
   useEffect(() => {
     const handleOffline = () => setConnectionStatus('offline');
@@ -94,6 +124,7 @@ export function AppShell() {
             <span aria-hidden="true">☰</span>
           </IconButton>
           <Link className="app-header__brand" to="/timer">{t('appTitle')}</Link>
+          {isSupabaseConfigured && auth.status === 'signed-in' && <Button onClick={() => void handleSignOut()}>Sign out</Button>}
         </header>
 
         <aside className="app-sidebar">
@@ -101,7 +132,8 @@ export function AppShell() {
             <span aria-hidden="true" className="app-sidebar__brand-mark">R</span>
             <span>{t('appTitle')}</span>
           </Link>
-          <ProfileSummary displayName={t('sidebarGuestLabel')} profileLabel={t('sidebarProfileLabel')} />
+          <ProfileSummary displayName={profileDisplayName} profileLabel={t('sidebarProfileLabel')} />
+          {isSupabaseConfigured && auth.status === 'signed-in' && <Button onClick={() => void handleSignOut()}>Sign out</Button>}
           <PrimaryNavigation />
         </aside>
 
@@ -109,6 +141,7 @@ export function AppShell() {
           <Outlet />
         </div>
       </div>
+      {authMessage && <p aria-live="polite" className="rv-visually-hidden" role="status">{authMessage}</p>}
 
       <Dialog
         id="mobile-primary-navigation"

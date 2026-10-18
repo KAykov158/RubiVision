@@ -106,6 +106,10 @@ export interface ScrambleService {
   generate(puzzle: PuzzleType): Promise<ServiceResult<Scramble>>;
 }
 
+export interface ScrambleRepository {
+  save(scramble: Scramble): Promise<ServiceResult<void>>;
+}
+
 export interface SolveListFilter {
   sessionId?: string;
   puzzle?: PuzzleType;
@@ -119,6 +123,12 @@ export interface SolveRepository {
     id: string,
     penalty: Penalty,
   ): Promise<ServiceResult<void>>;
+}
+
+export interface SessionRepository {
+  list(): Promise<ServiceResult<Session[]>>;
+  create(name: string, puzzle: PuzzleType): Promise<ServiceResult<Session>>;
+  archive(id: string): Promise<ServiceResult<void>>;
 }
 
 export interface AnalysisOptions {
@@ -142,7 +152,9 @@ export interface UserPreferencesService {
 
 export interface AppServices {
   scrambles: ScrambleService;
+  scrambleRepository?: ScrambleRepository;
   solves: SolveRepository;
+  sessions?: SessionRepository;
   analysis: AnalysisService;
   preferences?: UserPreferencesService;
 }

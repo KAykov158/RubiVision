@@ -76,9 +76,20 @@ button { color: inherit; }
 .timer-page__scramble-empty { min-height: 5rem; display: grid; place-items: center; padding: var(--space-4); margin: 0; border: 1px dashed var(--color-border); border-radius: var(--radius-md); color: var(--color-text-muted); text-align: center; }
 .timer-page__readout { display: grid; align-content: center; justify-items: center; gap: var(--space-4); text-align: center; }
 .timer-page__readout .timer-page__section-heading { width: 100%; text-align: start; }
-.timer-page__digits { display: block; max-width: 100%; color: var(--color-text); font-size: clamp(2.75rem, 10vw, 7rem); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.04em; overflow-wrap: anywhere; }
+.timer-page__digits { position: relative; display: inline-grid; place-items: center; max-width: 100%; color: var(--color-text); }
+.timer-page__seven-segment { display: flex; width: fit-content; max-width: 100%; align-items: stretch; justify-content: center; gap: clamp(0.1rem, 0.55vw, 0.55rem); height: clamp(3.5rem, 13.5vw, 12.5rem); }
+.timer-page__digit, .timer-page__decimal { display: block; flex: 0 1 auto; min-width: 0; width: auto; height: 100%; overflow: visible; }
+.timer-page__touch-control { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0.25rem; color: inherit; background: transparent; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.timer-page__touch-control:focus-visible { outline: 3px solid var(--color-focus-ring); outline-offset: 0.25rem; }
+.timer-page__touch-control:active { background: transparent; }
 .timer-page__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
 .timer-page__instruction { max-width: 42ch; margin: 0; color: var(--color-text-muted); font-size: var(--font-size-sm); }
+.timer-page__save-state textarea { width: 100%; min-height: 5rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.timer-page__save-state { width: min(100%, 42rem); display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-align: start; }
+.timer-page__save-state h3,
+.timer-page__save-state p { margin: 0; }
+.timer-page__save-state--saved { border-color: var(--color-success); }
+.timer-page__save-state--unsaved { border-color: var(--color-danger); }
 .timer-page__secondary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .timer-page__secondary-grid > .rv-card { display: grid; align-content: start; gap: var(--space-3); }
 .timer-page__visualization { min-height: 6rem; display: grid; place-items: center; border: 1px dashed var(--color-border); border-radius: var(--radius-md); color: var(--color-text-muted); background: var(--color-surface-raised); font-size: var(--font-size-2xl); }
@@ -458,7 +469,7 @@ body {
   gap: 1.25rem;
   min-width: 0;
 }
-.timer-page__workspace, .timer-page__session-rail { display: grid; align-content: start; gap: 1.15rem; min-width: 0; }
+.timer-page__workspace, .timer-page__session-rail { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 1.15rem; min-width: 0; }
 .timer-page__toolbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -569,6 +580,7 @@ body {
 .timer-page__scramble > .timer-page__hint { padding-inline: 0.2rem; }
 .timer-page__readout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   gap: 0.8rem;
   min-height: 18rem;
@@ -578,16 +590,15 @@ body {
 }
 .timer-page__readout .timer-page__section-heading { width: 100%; text-align: start; }
 .timer-page__digits {
+  grid-template-columns: minmax(0, 1fr);
+  justify-self: center;
+  width: fit-content;
+  min-width: 0;
   max-width: 100%;
   color: var(--color-text);
-  font-size: clamp(4.8rem, 10vw, 8.5rem);
-  font-weight: 620;
-  font-variant-numeric: tabular-nums;
-  line-height: 0.95;
-  letter-spacing: -0.05em;
-  white-space: nowrap;
-  overflow-wrap: anywhere;
 }
+.timer-page__digits--holding { color: var(--color-danger); }
+.timer-page__digits--armed { color: var(--color-success); }
 .timer-page__readout > .timer-page__hint { max-width: 42ch; }
 .timer-page__actions { gap: 0.7rem; }
 .timer-page__actions .rv-button { min-width: 8.25rem; }
@@ -660,7 +671,7 @@ body {
   .timer-page__session-rail > .rv-card { padding: 1rem; }
   .timer-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-page__readout { min-height: 16rem; }
-  .timer-page__digits { font-size: clamp(4.7rem, 8vw, 6.5rem); }
+  .timer-page__seven-segment { height: clamp(4.5rem, 10vw, 6.5rem); }
 }
 
 @media (max-width: 47.999rem) {
@@ -690,7 +701,7 @@ body {
   .timer-page__toolbar .rv-select { min-width: 0; }
   .timer-page__scramble { padding: 1rem; }
   .timer-page__readout { min-height: 16rem; padding: 1rem; }
-  .timer-page__digits { font-size: clamp(3.6rem, 16vw, 5rem); }
+  .timer-page__seven-segment { height: clamp(3.5rem, 18vw, 5.5rem); }
   .timer-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-page__stats-section .timer-page__section-heading { align-items: start; flex-direction: column; }
   .timer-page__stats-section .timer-page__section-heading > .timer-page__hint { text-align: left; }
@@ -711,7 +722,7 @@ body {
 @media (max-width: 23.4375rem) {
   .app-main, .rv-page-container { width: min(100% - 1rem, 78rem); }
   .timer-page { padding-inline: 0.5rem; }
-  .timer-page__digits { font-size: clamp(3.5rem, 16vw, 4.8rem); }
+  .timer-page__seven-segment { height: clamp(3.5rem, 18vw, 5.5rem); }
   .timer-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-page__stats > .rv-card { padding: 0.8rem; }
   .solves-filters, .statistics-filters, .analyze-entry-grid, .settings-preference-grid { grid-template-columns: minmax(0, 1fr); }
@@ -721,4 +732,26 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+}
+.auth-page {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+}
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  padding: clamp(1.25rem, 5vw, 2rem);
+}
+
+.auth-card form,
+.auth-card__links {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-card__links {
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
