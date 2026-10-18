@@ -90,6 +90,7 @@ export type ServiceErrorCode =
   | 'FORBIDDEN'
   | 'CONFLICT'
   | 'NETWORK'
+  | 'SCHEMA_MISMATCH'
   | 'RATE_LIMITED'
   | 'CANCELLED'
   | 'UNKNOWN';

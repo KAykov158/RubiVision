@@ -17,6 +17,7 @@ function resultMessage(result: ServiceResult<unknown>) {
       case 'FORBIDDEN': return 'Your session may have expired or access was denied. Sign in again, then retry.';
       case 'RATE_LIMITED': return 'Too many save requests. Wait a moment, then retry.';
       case 'NETWORK': return 'The cloud service could not be reached. This solve remains in memory; retry when connected.';
+      case 'SCHEMA_MISMATCH': return result.message ?? 'The cloud database needs an update before this solve can be saved. It remains in memory; retry after the update is applied.';
       case 'CONFLICT': return 'The solve could not be saved because its data conflicts with an existing record. The recovery copy is still available.';
       default: return result.message ?? 'The solve was not confirmed as saved. It remains in memory; retry or recover it below.';
     }

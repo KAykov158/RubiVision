@@ -63,8 +63,11 @@ function toDomainScramble(row: Database['public']['Tables']['scrambles']['Row'])
 
 function isMissingProvenanceColumns(error: { code?: string; message?: string } | null) {
   if (!error || !['42703', 'PGRST204'].includes(error.code ?? '')) return false;
-  const message = error.message?.toLocaleLowerCase() ?? '';
-  return message.includes('generator_provider') || message.includes('generation_method');
+  const message = error.message ?? '';
+  if (error.code === 'PGRST204') {
+    return /could not find the ['"]?(?:generator_provider|generation_method)['"]? column of ['"]?scrambles['"]? in the schema cache/i.test(message);
+  }
+  return /column ['"]?(?:generator_provider|generation_method)['"]? of relation ['"]?scrambles['"]? does not exist/i.test(message);
 }
 
 function fromDomainPenalty(value: Penalty) {
@@ -119,23 +122,48 @@ export function createSupabaseRepositories(client: Client) {
         || !Number.isFinite(Date.parse(scramble.createdAt))) {
         return { status: 'error', code: 'INVALID_INPUT', message: 'Scramble fields are invalid.' };
       }
-      const { error } = await client.from('scrambles').insert({
+      const legacyInsert = {
         id: scramble.id,
         owner_id: owner.ownerId,
         puzzle: scramble.puzzle,
         notation: scramble.notation,
-        generator_provider: scramble.generatorProvider ?? null,
         generator_version: scramble.generatorVersion,
-        generation_method: scramble.generationMethod ?? null,
         created_at: scramble.createdAt,
+      };
+      const { error } = await client.from('scrambles').insert({
+        ...legacyInsert,
+        generator_provider: scramble.generatorProvider ?? null,
+        generation_method: scramble.generationMethod ?? null,
       });
       if (!error) return { status: 'success', data: undefined };
+      if (isMissingProvenanceColumns(error)) {
+        // Older hosted schemas have neither optional provenance column. Retry
+        // the exact same immutable scramble identity with the original schema.
+        const { error: legacyError } = await client.from('scrambles').insert(legacyInsert);
+        if (!legacyError) return { status: 'success', data: undefined };
+        if (legacyError.code === '23505') {
+          const { data: saved, error: readError } = await client.from('scrambles')
+            .select('id,owner_id,puzzle,notation,generator_version,created_at')
+            .eq('id', scramble.id)
+            .maybeSingle();
+          if (!readError && saved
+            && saved.owner_id === owner.ownerId
+            && saved.puzzle === scramble.puzzle
+            && saved.notation === scramble.notation
+            && saved.generator_version === scramble.generatorVersion
+            && Date.parse(saved.created_at) === Date.parse(scramble.createdAt)) {
+            return { status: 'success', data: undefined };
+          }
+        }
+        return serviceFailure(legacyError);
+      }
       if (error.code === '23505') {
         const { data: saved, error: readError } = await client.from('scrambles')
-          .select('id,puzzle,notation,generator_provider,generator_version,generation_method,created_at')
+          .select('id,owner_id,puzzle,notation,generator_provider,generator_version,generation_method,created_at')
           .eq('id', scramble.id)
           .maybeSingle();
         if (!readError && saved
+          && saved.owner_id === owner.ownerId
           && saved.puzzle === scramble.puzzle
           && saved.notation === scramble.notation
           && saved.generator_provider === (scramble.generatorProvider ?? null)

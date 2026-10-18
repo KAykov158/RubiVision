@@ -70,6 +70,126 @@ describe('Supabase solve repository ownership', () => {
     }));
   });
 
+  it('retries only a missing optional provenance-column error with the same legacy scramble identity', async () => {
+    const scramble = {
+      ...integrationFixtures.scramble,
+      notation: "R  U\nR' ",
+      generatorProvider: 'cubing.js',
+      generationMethod: 'RANDOM_STATE' as const,
+    };
+    const insert = vi.fn()
+      .mockResolvedValueOnce({ error: {
+        code: 'PGRST204',
+        message: "Could not find the 'generator_provider' column of 'scrambles' in the schema cache",
+      } })
+      .mockResolvedValueOnce({ error: null });
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).scrambleRepository.save(scramble, ownerId);
+
+    expect(result).toEqual({ status: 'success', data: undefined });
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert.mock.calls[0]?.[0]).toMatchObject({
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: scramble.notation,
+      generator_provider: 'cubing.js',
+      generator_version: scramble.generatorVersion,
+      generation_method: 'RANDOM_STATE',
+      created_at: scramble.createdAt,
+    });
+    expect(insert.mock.calls[1]?.[0]).toEqual({
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: scramble.notation,
+      generator_version: scramble.generatorVersion,
+      created_at: scramble.createdAt,
+    });
+    expect(insert.mock.calls[1]?.[0].id).toBe(insert.mock.calls[0]?.[0].id);
+    expect(insert.mock.calls[1]?.[0].notation).toBe(insert.mock.calls[0]?.[0].notation);
+  });
+
+  it('accepts an identical legacy-schema duplicate by comparing all stored scramble fields', async () => {
+    const scramble = { ...integrationFixtures.scramble, generatorProvider: 'cubing.js', generationMethod: 'RANDOM_STATE' as const };
+    const insert = vi.fn()
+      .mockResolvedValueOnce({ error: {
+        code: '42703',
+        message: 'column "generation_method" of relation "scrambles" does not exist',
+      } })
+      .mockResolvedValueOnce({ error: { code: '23505' } });
+    const maybeSingle = vi.fn(async () => ({ data: {
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: scramble.notation,
+      generator_version: scramble.generatorVersion,
+      created_at: scramble.createdAt,
+    }, error: null }));
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }));
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert, select })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).scrambleRepository.save(scramble, ownerId);
+
+    expect(result).toEqual({ status: 'success', data: undefined });
+    expect(select).toHaveBeenCalledWith('id,owner_id,puzzle,notation,generator_version,created_at');
+    expect(maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a legacy duplicate when stored scramble data differs', async () => {
+    const scramble = { ...integrationFixtures.scramble };
+    const insert = vi.fn()
+      .mockResolvedValueOnce({ error: {
+        code: 'PGRST204',
+        message: "Could not find the 'generation_method' column of 'scrambles' in the schema cache",
+      } })
+      .mockResolvedValueOnce({ error: { code: '23505' } });
+    const maybeSingle = vi.fn(async () => ({ data: {
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: `${scramble.notation} R`,
+      generator_version: scramble.generatorVersion,
+      created_at: scramble.createdAt,
+    }, error: null }));
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }));
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert, select })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).scrambleRepository.save(scramble, ownerId);
+
+    expect(result).toMatchObject({ status: 'error', code: 'CONFLICT' });
+    expect(insert).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [{ code: '42501', message: 'new row violates row-level security policy' }],
+    [{ code: 'PGRST301', status: 401, message: 'JWT expired' }],
+    [{ code: 'FETCH_ERROR', message: 'network request failed' }],
+    [{ code: '42703', message: 'column "generator_provider" of relation "solves" does not exist' }],
+    [{ code: 'PGRST204', message: "Could not find the 'generator_provider' column of 'sessions' in the schema cache" }],
+  ])('does not use the legacy fallback for unrelated save errors %o', async (error) => {
+    const insert = vi.fn(async () => ({ error }));
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).scrambleRepository.save({ ...integrationFixtures.scramble }, ownerId);
+
+    expect(result.status).toBe('error');
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
+
   it('returns stored provenance and exact notation on read', async () => {
     const notation = "R  U\nR' ";
     const maybeSingle = vi.fn(async () => ({ data: {
@@ -140,6 +260,7 @@ describe('Supabase solve repository ownership', () => {
     };
     const saved = {
       id: scramble.id,
+      owner_id: ownerId,
       puzzle: scramble.puzzle,
       notation: scramble.notation,
       generator_provider: 'cubing.js',
@@ -159,7 +280,7 @@ describe('Supabase solve repository ownership', () => {
     const result = await createSupabaseRepositories(client).scrambleRepository.save(scramble, ownerId);
 
     expect(result).toEqual({ status: 'success', data: undefined });
-    expect(select).toHaveBeenCalledWith('id,puzzle,notation,generator_provider,generator_version,generation_method,created_at');
+    expect(select).toHaveBeenCalledWith('id,owner_id,puzzle,notation,generator_provider,generator_version,generation_method,created_at');
   });
 
   it('rejects a duplicate scramble ID whose stored provenance differs from the retry', async () => {
@@ -342,7 +463,7 @@ describe('Supabase saved scramble history', () => {
       in: vi.fn(async () => {
         scrambleRead += 1;
         return scrambleRead === 1
-          ? { data: null, error: { code: 'PGRST204', message: 'Could not find the generator_provider column' } }
+          ? { data: null, error: { code: 'PGRST204', message: "Could not find the 'generator_provider' column of 'scrambles' in the schema cache" } }
           : { data: [{ ...scrambleRow, generator_provider: undefined, generation_method: undefined }], error: null };
       }),
     };
