@@ -22,7 +22,7 @@ try {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 8 * 1024 * 1024,
-  }).replace(/\r\n/g, '\n');
+  }).replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '');
 } catch {
   console.error('Type generation failed. Run npm ci and start a disposable local Supabase stack before retrying.');
   process.exit(1);

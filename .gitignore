@@ -11,6 +11,7 @@ apps/web/node_modules/.tmp/
 **/playwright-profile*/
 **/tmp-browser-profile*/
 supabase/.temp/
+supabase/.branches/
 
 # Local environment configuration
 .env
