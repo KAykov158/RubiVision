@@ -4,6 +4,8 @@ RubiVision AI is a React, TypeScript, and Vite application. Phase 1 provides a r
 
 The current architecture designates Supabase PostgreSQL as the sole persistent application database. This foundation has no configured database adapter and does not persist application data in browser storage. See [the architecture and contracts](docs/phase1/architecture-and-contracts.md) and [the Prompt 12 audit](docs/phase1/prompt12-final-audit.md) for scope and verification evidence.
 
+Category 02 SQL migrations and database tests are documented in [the database foundation guide](docs/category02/database-foundation.md). The schema remains inaccessible to browser roles until Category 02A adds Auth and RLS policies.
+
 ## Requirements
 
 - Node.js 24 LTS (npm is included)
