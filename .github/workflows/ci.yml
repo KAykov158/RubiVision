@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, staging]
   pull_request:
   workflow_dispatch:
 
@@ -61,3 +61,35 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  verify-database:
+    name: Verify database
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Supabase CLI
+        id: install
+        run: npm ci
+
+      - name: Start clean local database and apply migrations
+        run: npx --no-install supabase start -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Run PostgreSQL and pgTAP tests
+        run: npm run db:test
+
+      - name: Check generated database types
+        run: npm run db:types:check
+
+      - name: Stop local Supabase stack
+        if: always() && steps.install.outcome == 'success'
+        run: npx --no-install supabase stop --no-backup

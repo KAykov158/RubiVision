@@ -1,0 +1,7 @@
+project_id = "rubivision"
+
+[db.seed]
+enabled = false
+
+[analytics]
+enabled = false
