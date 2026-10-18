@@ -46,4 +46,16 @@ describe('AppErrorBoundary', () => {
 
     expect(screen.getByText('Recovered page')).toBeInTheDocument();
   });
+
+  it('does not include exception details in its development log', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const boundary = new AppErrorBoundary({ children: null });
+
+    Reflect.apply(boundary.componentDidCatch, boundary, [
+      new Error('private solve details'),
+      { componentStack: 'private component stack' },
+    ]);
+
+    expect(log.mock.calls).toEqual([['Application render failed.']]);
+  });
 });
