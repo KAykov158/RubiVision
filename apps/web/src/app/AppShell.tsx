@@ -17,6 +17,7 @@ function getUserDisplayName(user: ReturnType<typeof useAuth>['user']) {
 const navigationItems = [
   { to: '/timer', label: 'navigationTimer', icon: 'timer' },
   { to: '/solves', label: 'navigationSolves', icon: 'solves' },
+  { to: '/scrambles', label: 'navigationScrambles', icon: 'scrambles' },
   { to: '/statistics', label: 'navigationStatistics', icon: 'statistics' },
   { to: '/analyze', label: 'navigationAnalyze', icon: 'analyze' },
   { to: '/challenges', label: 'navigationChallenges', icon: 'challenges' },
@@ -27,6 +28,7 @@ function NavigationIcon({ name }: { name: (typeof navigationItems)[number]['icon
   const paths = {
     timer: <><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 1.5M9 2h6M12 2v3M19 6l1.5-1.5" /></>,
     solves: <><path d="M5 4.5h14v15H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    scrambles: <><path d="m4 8 4-4 4 4M8 4v10a5 5 0 0 0 5 5h7" /><path d="m16 15 4 4-4 4" /></>,
     statistics: <><path d="M4 19V5M4 19h17" /><path d="m7 15 4-4 3 2 5-7" /></>,
     analyze: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5M8 11l2-2 2 2 3-3" /></>,
     challenges: <><path d="M8 4h8v3a4 4 0 0 1-8 0zM12 11v5M8 20h8M10 16h4" /><path d="M8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3" /></>,

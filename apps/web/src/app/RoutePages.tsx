@@ -7,12 +7,14 @@ import { StatisticsPage } from './StatisticsPage';
 import { AnalyzePage } from './AnalyzePage';
 import { ChallengesPage } from './ChallengesPage';
 import { SettingsPage } from './SettingsPage';
+import { ScrambleHistoryPage } from './ScrambleHistoryPage';
 
 export function TimerPage() {
   return <TimerPageShell />;
 }
 
 export { SolvesPage, StatisticsPage };
+export { ScrambleHistoryPage };
 
 export { AnalyzePage, ChallengesPage, SettingsPage };
 

@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '@supabase/supabase-js';
-import type { AppServices, Scramble, ServiceResult, Session, Solve } from '../shared/domain/contracts';
+import type { AppServices, Scramble, ScrambleService, ServiceResult, Session, Solve } from '../shared/domain/contracts';
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext';
 import { TimerCompletionProvider } from '../features/timer/TimerCompletionProvider';
 import { useTimerCompletion, type TimerCompletion } from '../features/timer/timerCompletionContext';
@@ -29,28 +29,30 @@ const testScramble: Scramble = {
 
 function makeServices(
   saveSolve: (solve: Solve) => Promise<ServiceResult<void>> = async () => ({ status: 'success', data: undefined }),
-  options: { scramble?: Scramble | null; sessions?: Session[] } = {},
+  options: { scramble?: Scramble | null; sessions?: Session[]; generate?: ScrambleService['generate'] } = {},
 ) {
   const generatedScramble = options.scramble === undefined ? testScramble : options.scramble;
   const availableSessions = options.sessions ?? [session];
   const solves = {
-    save: vi.fn(saveSolve),
+    save: vi.fn((solve: Solve, expectedOwnerId?: string) => { void expectedOwnerId; return saveSolve(solve); }),
     get: vi.fn(async (id: string): Promise<ServiceResult<Solve | null>> => { void id; return { status: 'success', data: null }; }),
     list: vi.fn(async (): Promise<ServiceResult<Solve[]>> => ({ status: 'success', data: [] })),
     updatePenalty: vi.fn(async (id: string, penalty: Solve['penalty']): Promise<ServiceResult<void>> => { void id; void penalty; return { status: 'success', data: undefined }; }),
   } satisfies AppServices['solves'];
   const sessions = {
-    list: vi.fn(async (): Promise<ServiceResult<Session[]>> => ({ status: 'success', data: availableSessions })),
-    create: vi.fn(async (name: string, puzzle: Session['puzzle']): Promise<ServiceResult<Session>> => { void name; void puzzle; return { status: 'success', data: session }; }),
+    list: vi.fn(async (expectedOwnerId?: string): Promise<ServiceResult<Session[]>> => { void expectedOwnerId; return { status: 'success', data: availableSessions }; }),
+    create: vi.fn(async (name: string, puzzle: Session['puzzle'], expectedOwnerId?: string): Promise<ServiceResult<Session>> => { void name; void puzzle; void expectedOwnerId; return { status: 'success', data: session }; }),
     archive: vi.fn(async (id: string): Promise<ServiceResult<void>> => { void id; return { status: 'success', data: undefined }; }),
   } satisfies NonNullable<AppServices['sessions']>;
   const scrambleRepository = {
-    save: vi.fn(async (scramble: Scramble): Promise<ServiceResult<void>> => { void scramble; return { status: 'success', data: undefined }; }),
+    save: vi.fn(async (scramble: Scramble, expectedOwnerId?: string): Promise<ServiceResult<void>> => { void scramble; void expectedOwnerId; return { status: 'success', data: undefined }; }),
+    get: vi.fn(async () => ({ status: 'success', data: null } as const)),
+    listHistory: vi.fn(async () => ({ status: 'success', data: { entries: [], nextCursor: null } } as const)),
   } satisfies NonNullable<AppServices['scrambleRepository']>;
   const services: AppServices = {
-    scrambles: { generate: async () => generatedScramble
+    scrambles: { generate: options.generate ?? (async () => generatedScramble
       ? ({ status: 'success', data: generatedScramble })
-      : ({ status: 'unavailable', reason: 'UNSUPPORTED' }) },
+      : ({ status: 'unavailable', reason: 'UNSUPPORTED' })) },
     scrambleRepository,
     solves,
     sessions,
@@ -92,6 +94,48 @@ function renderApp(status: AuthContextValue['status'], services: ReturnType<type
 
 function renderTimer(status: AuthContextValue['status'], services = makeServices()) {
   return renderApp(status, services, <TimerPageShell />);
+}
+
+function TimerSnapshotProbe() {
+  const { activeRun, pending } = useTimerCompletion();
+  const scramble = activeRun?.scramble ?? pending?.completion.scramble ?? null;
+  return <output data-testid="scramble-snapshot-probe">{JSON.stringify({
+    frozen: scramble ? Object.isFrozen(scramble) : false,
+    id: scramble?.id,
+    puzzle: scramble?.puzzle,
+    notation: scramble?.notation,
+    generatorVersion: scramble?.generatorVersion,
+    generatorProvider: scramble?.generatorProvider,
+    generationMethod: scramble?.generationMethod,
+  })}</output>;
+}
+
+function TimerRouteHarness() {
+  const [showTimer, setShowTimer] = useState(true);
+  return <>
+    <button onClick={() => setShowTimer((show) => !show)} type="button">Toggle timer route</button>
+    {showTimer ? <TimerPageShell /> : <p>Another route</p>}
+  </>;
+}
+
+function AccountSwitchingProviders({ services, children, initialUserId = ownerId }: { services: ReturnType<typeof makeServices>; children: ReactNode; initialUserId?: string | null }) {
+  const [userId, setUserId] = useState<string | null>(initialUserId);
+  const value: AuthContextValue = {
+    ...authValue(userId ? 'signed-in' : 'signed-out'),
+    user: userId ? { id: userId } as User : null,
+  };
+  return <LocaleProvider>
+    <AuthContext.Provider value={value}>
+      <button onClick={() => setUserId((current) => current === ownerId ? '99999999-9999-4999-8999-999999999999' : current ? ownerId : ownerId)} type="button">Switch account</button>
+      <AppServicesProvider services={services.services}>
+        <BrowserRouter><TimerCompletionProvider>{children}</TimerCompletionProvider></BrowserRouter>
+      </AppServicesProvider>
+    </AuthContext.Provider>
+  </LocaleProvider>;
+}
+
+function renderWithAccountSwitch(services: ReturnType<typeof makeServices>, child: ReactNode, initialUserId?: string | null) {
+  return { ...services, ...render(<AccountSwitchingProviders initialUserId={initialUserId} services={services}>{child}</AccountSwitchingProviders>) };
 }
 
 function DuplicateCompletionButton({ completion }: { completion: TimerCompletion }) {
@@ -136,6 +180,206 @@ afterEach(() => {
 });
 
 describe('timer-to-cloud-save slice', () => {
+  it.each(['222', '333', '444', '555', '666', '777'] as const)('selects %s and displays its matching scramble', async (puzzle) => {
+    const generate = vi.fn(async (puzzle: Scramble['puzzle']): Promise<ServiceResult<Scramble>> => ({
+      status: 'success', data: { ...testScramble, puzzle, notation: `scramble for ${puzzle}` },
+    }));
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await flushPromises();
+    const selector = screen.getByRole('combobox', { name: 'Puzzle type' });
+    expect(Array.from((selector as HTMLSelectElement).options).map((option) => option.value))
+      .toEqual(['222', '333', '444', '555', '666', '777']);
+    expect(Array.from((selector as HTMLSelectElement).options).map((option) => option.textContent))
+      .toEqual(['2×2', '3×3', '4×4', '5×5', '6×6', '7×7']);
+    if (puzzle !== '333') fireEvent.change(selector, { target: { value: puzzle } });
+    await flushPromises();
+    expect(screen.getByText('scramble for ' + puzzle)).toBeInTheDocument();
+    expect(screen.getByText('Generated scramble · temporary until a completed solve is confirmed and saved.')).toBeInTheDocument();
+    expect((selector as HTMLSelectElement).value).toBe(puzzle);
+    expect(generate).toHaveBeenLastCalledWith(puzzle, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+
+  it('regenerates explicitly, hides the previous notation while loading, and reports completion', async () => {
+    const fresh = { ...testScramble, id: '44444444-4444-4444-8444-444444444444', notation: 'FRESH R U' };
+    let finish!: (result: ServiceResult<Scramble>) => void;
+    const generate = vi.fn()
+      .mockResolvedValueOnce({ status: 'success', data: testScramble } satisfies ServiceResult<Scramble>)
+      .mockImplementationOnce(() => new Promise<ServiceResult<Scramble>>((resolve) => { finish = resolve; }));
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await flushPromises();
+    const newScrambleButton = screen.getByRole('button', { name: 'New Scramble' });
+    fireEvent.click(newScrambleButton);
+    expect(newScrambleButton).toBeDisabled();
+    fireEvent.click(newScrambleButton);
+    await flushPromises();
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(testScramble.notation)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    finish({ status: 'success', data: fresh });
+    await flushPromises();
+    expect(screen.getByText(fresh.notation)).toBeInTheDocument();
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows generation failure, offers retry, and prevents timer start until retry succeeds', async () => {
+    const generate = vi.fn()
+      .mockResolvedValueOnce({ status: 'error', code: 'UNKNOWN' } satisfies ServiceResult<Scramble>)
+      .mockResolvedValueOnce({ status: 'success', data: testScramble } satisfies ServiceResult<Scramble>);
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await flushPromises();
+    expect(screen.getByText('Could not generate this scramble. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry Scramble' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+    await advance(600);
+    fireEvent.keyUp(window, { code: 'Space', key: ' ' });
+    expect(screen.getByRole('timer')).toHaveTextContent('00.00');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry Scramble' }));
+    await flushPromises();
+    expect(screen.getByText(testScramble.notation)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+  });
+
+  it('ignores a stale response after the selected puzzle changes', async () => {
+    let finishOld!: (result: ServiceResult<Scramble>) => void;
+    const signals: AbortSignal[] = [];
+    const generate = vi.fn((puzzle: Scramble['puzzle'], options?: { signal?: AbortSignal }): Promise<ServiceResult<Scramble>> => {
+      if (options?.signal) signals.push(options.signal);
+      return puzzle === '333'
+        ? new Promise<ServiceResult<Scramble>>((resolve) => { finishOld = resolve; })
+        : Promise.resolve<ServiceResult<Scramble>>({ status: 'success', data: { ...testScramble, puzzle: '222', notation: 'ONLY 222' } });
+    });
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await Promise.resolve();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Puzzle type' }), { target: { value: '222' } });
+    expect(signals[0]?.aborted).toBe(true);
+    await flushPromises();
+    finishOld({ status: 'success', data: testScramble });
+    await flushPromises();
+    expect(screen.getByText('ONLY 222')).toBeInTheDocument();
+    expect(screen.queryByText(testScramble.notation)).not.toBeInTheDocument();
+  });
+
+  it('rejects a generated scramble for the wrong puzzle and keeps timer start disabled', async () => {
+    const generate = vi.fn(async (): Promise<ServiceResult<Scramble>> => ({
+      status: 'success', data: { ...testScramble, puzzle: '222', notation: 'WRONG PUZZLE' },
+    }));
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await flushPromises();
+    expect(screen.getByText('Could not generate this scramble. Try again.')).toBeInTheDocument();
+    expect(screen.queryByText('WRONG PUZZLE')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+  });
+
+  it('does not mark a scramble ready when its snapshot identity is malformed', async () => {
+    const generate = vi.fn(async (): Promise<ServiceResult<Scramble>> => ({
+      status: 'success', data: { ...testScramble, id: '' },
+    }));
+    renderTimer('signed-out', makeServices(undefined, { generate }));
+    await flushPromises();
+    expect(screen.getByText('Could not generate this scramble. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+  });
+
+  it('freezes the run snapshot and displays and saves that exact scramble after source mutation', async () => {
+    const sourceScramble: Scramble = {
+      ...testScramble,
+      notation: "R U R' U'",
+      generatorProvider: 'cubing',
+      generationMethod: 'RANDOM_STATE',
+    };
+    const expectedSnapshot = { ...sourceScramble };
+    const services = makeServices(undefined, { scramble: sourceScramble });
+    const { solves, scrambleRepository } = renderApp('signed-in', services, <>
+      <TimerPageShell />
+      <TimerSnapshotProbe />
+    </>);
+    await flushPromises();
+    const control = screen.getByRole('button', { name: 'Timer control' });
+    fireEvent.pointerDown(control, { pointerId: 1, pointerType: 'touch', button: 0 });
+    expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toBeDisabled();
+    await advance(550);
+    fireEvent.pointerUp(control, { pointerId: 1, pointerType: 'touch', button: 0 });
+    expect(JSON.parse(screen.getByTestId('scramble-snapshot-probe').textContent ?? '{}')).toEqual({
+      frozen: true,
+      id: expectedSnapshot.id,
+      puzzle: expectedSnapshot.puzzle,
+      notation: expectedSnapshot.notation,
+      generatorVersion: expectedSnapshot.generatorVersion,
+      generatorProvider: expectedSnapshot.generatorProvider,
+      generationMethod: expectedSnapshot.generationMethod,
+    });
+
+    Object.assign(sourceScramble, { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', notation: 'MUTATED AFTER START' });
+    expect(screen.getByText(expectedSnapshot.notation)).toBeInTheDocument();
+    expect(screen.queryByText('MUTATED AFTER START')).not.toBeInTheDocument();
+    await advance(1_234);
+    fireEvent.pointerDown(control, { pointerId: 1, pointerType: 'touch', button: 0 });
+    fireEvent.pointerUp(control, { pointerId: 1, pointerType: 'touch', button: 0 });
+    await flushPromises();
+    expect(scrambleRepository.save).toHaveBeenCalledWith(expectedSnapshot, ownerId);
+    expect(solves.save.mock.calls[0]?.[0]).toMatchObject({
+      scrambleId: expectedSnapshot.id,
+      puzzle: expectedSnapshot.puzzle,
+    });
+  });
+
+  it('keeps the captured scramble visible across timer route unmount and return', async () => {
+    const generate = vi.fn(async (puzzle: Scramble['puzzle']): Promise<ServiceResult<Scramble>> => ({
+      status: 'success', data: { ...testScramble, puzzle, notation: `captured ${puzzle}` },
+    }));
+    let confirmSave!: (result: ServiceResult<void>) => void;
+    const services = makeServices(() => new Promise<ServiceResult<void>>((resolve) => { confirmSave = resolve; }), { generate });
+    renderApp('signed-in', services, <TimerRouteHarness />);
+    await flushPromises();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Puzzle type' }), { target: { value: '777' } });
+    await flushPromises();
+    expect(screen.getByText('captured 777')).toBeInTheDocument();
+    const control = screen.getByRole('button', { name: 'Timer control' });
+    fireEvent.pointerDown(control, { pointerId: 3, pointerType: 'touch', button: 0 });
+    await advance(550);
+    fireEvent.pointerUp(control, { pointerId: 3, pointerType: 'touch', button: 0 });
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+    expect(screen.getByText('Another route')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+    await flushPromises();
+    expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toBeDisabled();
+    expect((screen.getByRole('combobox', { name: 'Puzzle type' }) as HTMLSelectElement).value).toBe('777');
+    expect(screen.getByText('captured 777')).toBeInTheDocument();
+    await advance(321);
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Timer control' }), { pointerId: 3, pointerType: 'touch', button: 0 });
+    fireEvent.pointerUp(screen.getByRole('button', { name: 'Timer control' }), { pointerId: 3, pointerType: 'touch', button: 0 });
+    await flushPromises();
+    expect(screen.getByRole('heading', { name: 'Saving solve' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+    await flushPromises();
+    expect(screen.getByText('captured 777')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Saving solve' })).toBeInTheDocument();
+    await act(async () => { confirmSave({ status: 'success', data: undefined }); });
+  });
+
+  it('copies exact notation and reports clipboard denial without a fallback write', async () => {
+    const writeText = vi.fn(async () => undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    renderTimer('signed-out');
+    await flushPromises();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Scramble' }));
+    await flushPromises();
+    expect(writeText).toHaveBeenCalledWith(testScramble.notation);
+    expect(screen.getByText('Scramble copied.')).toBeInTheDocument();
+
+    writeText.mockRejectedValueOnce(new Error('permission denied'));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Scramble' }));
+    await flushPromises();
+    expect(screen.getByText('Could not copy. Check browser clipboard access and try again.')).toBeInTheDocument();
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Scramble' }));
+    await flushPromises();
+    expect(screen.getByText('Could not copy. Check browser clipboard access and try again.')).toBeInTheDocument();
+  });
+
   it('keeps the timer public and retains a signed-out completion without claiming it was saved', async () => {
     const { solves } = renderTimer('signed-out');
     expect(screen.getByRole('heading', { name: 'Timer', level: 1 })).toBeInTheDocument();
@@ -161,9 +405,24 @@ describe('timer-to-cloud-save slice', () => {
     await flushPromises();
 
     expect(screen.getByRole('heading', { name: 'Solve not saved' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in to save this solve' })).toHaveAttribute('href', '/auth/sign-in');
+    expect(screen.getByText(/sign in to save this guest solve, then retry/i)).toBeInTheDocument();
     expect((screen.getByRole('textbox', { name: 'Volatile recovery data' }) as HTMLTextAreaElement).value).toContain(testScramble.notation);
     expect(solves.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps a guest completion unsaved until an explicit retry claims the signed-in account', async () => {
+    const services = makeServices();
+    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell />, null);
+    await completeSolve();
+    expect(screen.getByText(/sign in to save this guest solve, then retry/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in to save this solve' })).toHaveAttribute('href', '/auth/sign-in');
+    expect(scrambleRepository.save).not.toHaveBeenCalled();
+    expect(solves.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry save' }));
+    await flushPromises();
+    expect(scrambleRepository.save).toHaveBeenCalledWith(expect.anything(), ownerId);
+    expect(solves.save).toHaveBeenCalledWith(expect.anything(), ownerId);
   });
 
   it('saves exact scramble, millisecond duration, UTC timestamps, session and stable UUID only after repository confirmation', async () => {
@@ -176,6 +435,8 @@ describe('timer-to-cloud-save slice', () => {
     fireEvent.pointerUp(control, { pointerId: 1, pointerType: 'touch', button: 0 });
     expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toBeDisabled();
     expect(screen.getByRole('combobox', { name: 'Session' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'New Scramble' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Copy Scramble' })).toBeDisabled();
     expect(screen.getByText(scrambleFixture.notation)).toBeInTheDocument();
     await advance(1_234);
     fireEvent.pointerDown(control, { pointerId: 1, pointerType: 'touch', button: 0 });
@@ -254,6 +515,64 @@ describe('timer-to-cloud-save slice', () => {
     expect(screen.getByRole('heading', { name: 'Saved' })).toBeInTheDocument();
     expect(solves.save.mock.calls.map(([solve]) => solve.id)).toEqual([solveId, solveId]);
     expect(scrambleRepository.save.mock.calls.map(([scramble]) => scramble.id)).toEqual([scrambleId, scrambleId]);
+    expect(scrambleRepository.save.mock.calls[1]?.[0]).toEqual(scrambleRepository.save.mock.calls[0]?.[0]);
+    expect(solves.save.mock.calls[1]?.[0]).toEqual(solves.save.mock.calls[0]?.[0]);
+    expect(solves.save.mock.calls.map(([, expectedOwner]) => expectedOwner)).toEqual([ownerId, ownerId]);
+    expect(scrambleRepository.save.mock.calls.map(([, expectedOwner]) => expectedOwner)).toEqual([ownerId, ownerId]);
+  });
+
+  it('keeps a completed scramble unavailable until the next generation succeeds', async () => {
+    const freshScramble: Scramble = {
+      ...testScramble,
+      id: '55555555-5555-4555-8555-555555555555',
+      notation: 'NEXT SCRAMBLE',
+    };
+    let resolveNext!: (result: ServiceResult<Scramble>) => void;
+    const generate = vi.fn()
+      .mockResolvedValueOnce({ status: 'success', data: testScramble } satisfies ServiceResult<Scramble>)
+      .mockImplementationOnce(() => new Promise<ServiceResult<Scramble>>((resolve) => { resolveNext = resolve; }));
+    renderTimer('signed-in', makeServices(undefined, { generate }));
+    await completeSolve();
+    expect(screen.getByRole('heading', { name: 'Saved' })).toBeInTheDocument();
+    expect(screen.getAllByText('Generating scramble…').length).toBeGreaterThan(0);
+    expect(screen.queryByText(testScramble.notation)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    await act(async () => { resolveNext({ status: 'success', data: freshScramble }); });
+    await flushPromises();
+    expect(screen.getByText(freshScramble.notation)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+  });
+
+  it('pauses an in-flight save after an account change and retries only for the captured owner', async () => {
+    const services = makeServices();
+    let resolveFirstScramble!: (result: ServiceResult<void>) => void;
+    const scrambleRepo = services.scrambleRepository;
+    const saveScramble = vi.fn(async (scramble: Scramble, expectedOwnerId?: string): Promise<ServiceResult<void>> => {
+      void scramble;
+      void expectedOwnerId;
+      return { status: 'success', data: undefined };
+    }).mockImplementationOnce((scramble: Scramble, expectedOwnerId?: string) => {
+      void scramble;
+      void expectedOwnerId;
+      return new Promise<ServiceResult<void>>((resolve) => { resolveFirstScramble = resolve; });
+    });
+    scrambleRepo.save = saveScramble;
+    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell />);
+    await completeSolve();
+    expect(scrambleRepository.save).toHaveBeenCalledWith(expect.anything(), ownerId);
+    fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
+    await act(async () => { resolveFirstScramble({ status: 'success', data: undefined }); });
+    await flushPromises();
+    expect(screen.getByText(/account that started this solve/i)).toBeInTheDocument();
+    expect(solves.save).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry save' }));
+    await flushPromises();
+    expect(scrambleRepository.save).toHaveBeenCalledTimes(2);
+    expect(scrambleRepository.save.mock.calls[1]?.[0]).toEqual(scrambleRepository.save.mock.calls[0]?.[0]);
+    expect(scrambleRepository.save.mock.calls.map(([, expectedOwner]) => expectedOwner)).toEqual([ownerId, ownerId]);
+    expect(solves.save).toHaveBeenCalledWith(expect.objectContaining({ scrambleId: scrambleRepository.save.mock.calls[0]?.[0].id }), ownerId);
   });
 
   it('offers copy fallback data and a JSON download for an unsaved solve', async () => {
@@ -290,6 +609,7 @@ describe('timer-to-cloud-save slice', () => {
     const { solves } = duplicateServices;
     const completion: TimerCompletion = {
       solveId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      completionOwnerId: ownerId,
       scramble: {
         id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
         puzzle: '333',
@@ -324,26 +644,20 @@ describe('timer-to-cloud-save slice', () => {
     expect(screen.getByRole('button', { name: 'Retry save' })).toBeEnabled();
   });
 
-  it('keeps timing available when no real scramble exists and refuses fabricated persistence', async () => {
+  it('prevents timer start and persistence when no real scramble exists', async () => {
     const { solves, scrambleRepository } = renderTimer('signed-in', makeServices(undefined, { scramble: null }));
     await flushPromises();
     expect(screen.getByRole('timer')).toHaveTextContent('00.00');
     const control = screen.getByRole('button', { name: 'Timer control' });
-    expect(control).toBeEnabled();
+    expect(control).toBeDisabled();
     expect(screen.queryByRole('textbox', { name: 'Exact scramble snapshot' })).not.toBeInTheDocument();
     fireEvent.pointerDown(control, { pointerId: 1, pointerType: 'touch', button: 0 });
     await advance(550);
     fireEvent.pointerUp(control, { pointerId: 1, pointerType: 'touch', button: 0 });
-    await advance(650);
-    fireEvent.pointerDown(control, { pointerId: 1, pointerType: 'touch', button: 0 });
-    fireEvent.pointerUp(control, { pointerId: 1, pointerType: 'touch', button: 0 });
     await flushPromises();
 
-    expect(screen.getByRole('timer')).toHaveTextContent('00.65');
-    expect(screen.getByRole('heading', { name: 'Solve not saved' })).toBeInTheDocument();
-    expect(screen.getByText(/No real scramble snapshot is available/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry save' })).not.toBeInTheDocument();
-    expect(JSON.parse((screen.getByRole('textbox', { name: 'Volatile recovery data' }) as HTMLTextAreaElement).value)).toEqual(expect.objectContaining({ scramble: null }));
+    expect(screen.getByRole('timer')).toHaveTextContent('00.00');
+    expect(screen.queryByRole('heading', { name: 'Solve not saved' })).not.toBeInTheDocument();
     expect(scrambleRepository.save).not.toHaveBeenCalled();
     expect(solves.save).not.toHaveBeenCalled();
   });

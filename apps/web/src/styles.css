@@ -541,6 +541,7 @@ body {
 .timer-page__selector-control:has(.timer-page__selector:disabled) .timer-page__selector-chevron { color: var(--color-text-muted); }
 .timer-page__toolbar-hint { grid-column: 2; margin-top: -0.55rem; font-size: 0.72rem; }
 .timer-page__scramble { display: grid; gap: 1rem; min-width: 0; padding: 1.25rem 1.5rem; }
+.timer-page__scramble-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; }
 .timer-page__section-heading { min-width: 0; }
 .timer-page__section-heading h2 { margin: 0; }
 .timer-page__scramble-empty {
@@ -574,7 +575,7 @@ body {
   font-variant-numeric: tabular-nums;
   line-height: 1.8;
   text-align: center;
-  white-space: normal;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .timer-page__scramble > .timer-page__hint { padding-inline: 0.2rem; }
@@ -754,4 +755,63 @@ body {
 
 .auth-card__links {
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+}
+
+.scramble-history-list {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+
+.scramble-history-card {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.scramble-history-card__header,
+.scramble-history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scramble-history-card__header h2 {
+  margin: 0;
+}
+
+.scramble-history-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.scramble-history-card dl > div {
+  min-width: 0;
+}
+
+.scramble-history-card dt {
+  color: var(--rv-text-muted);
+  font-size: 0.85rem;
+}
+
+.scramble-history-card dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.scramble-history-card__notation {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+.scramble-history-pagination {
+  justify-content: center;
+  flex-wrap: wrap;
 }

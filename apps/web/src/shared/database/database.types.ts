@@ -167,14 +167,14 @@ isOneToOne: false
                   ]
                 },"scrambles": {
                   Row: {
-                    "created_at": string,"generator_version": string,"id": string,"notation": string,"owner_id": string,"puzzle": string
+                    "created_at": string,"generation_method": string | null,"generator_provider": string | null,"generator_version": string,"id": string,"notation": string,"owner_id": string,"puzzle": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"generator_version": string,"id"?: string,"notation": string,"owner_id": string,"puzzle": string
+                    "created_at"?: string,"generation_method"?: string | null,"generator_provider"?: string | null,"generator_version": string,"id"?: string,"notation": string,"owner_id": string,"puzzle": string
                   }
                   Update: {
-                    "created_at"?: string,"generator_version"?: string,"id"?: string,"notation"?: string,"owner_id"?: string,"puzzle"?: string
+                    "created_at"?: string,"generation_method"?: string | null,"generator_provider"?: string | null,"generator_version"?: string,"id"?: string,"notation"?: string,"owner_id"?: string,"puzzle"?: string
                   }
                   Relationships: [
 

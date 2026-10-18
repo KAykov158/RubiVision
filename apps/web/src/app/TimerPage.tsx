@@ -11,7 +11,7 @@ import { useTimerCompletion, type TimerCompletion } from '../features/timer/time
 import { useAppServices } from './useAppServices';
 
 const puzzleTypes: PuzzleType[] = ['222', '333', '444', '555', '666', '777'];
-const puzzleLabel = (type: PuzzleType) => `${type[0]}\u00D7${type[0]}\u00D7${type[0]}`;
+const puzzleLabel = (type: PuzzleType) => `${type[0]}\u00D7${type[0]}`;
 
 function SelectorIcon({ kind }: { kind: 'puzzle' | 'session' }) {
   return kind === 'puzzle' ? (
@@ -78,7 +78,9 @@ export function TimerPageShell() {
   const auth = useAuth();
   const appServices = useAppServices();
   const [puzzle, setPuzzle] = useState<PuzzleType>('333');
-  const [scrambleResult, setScrambleResult] = useState<{ puzzle: PuzzleType; scramble: Scramble | null } | null>(null);
+  const [scrambleResult, setScrambleResult] = useState<{ puzzle: PuzzleType; requestKey: string; status: 'ready' | 'error'; scramble: Scramble | null } | null>(null);
+  const [regenerationCount, setRegenerationCount] = useState(0);
+  const [scrambleCopyMessage, setScrambleCopyMessage] = useState('');
   const [sessionResult, setSessionResult] = useState<{ ownerId: string; puzzle: PuzzleType; sessions: Session[]; status: 'ready' | 'error' } | null>(null);
   const [sessionSelection, setSessionSelection] = useState<{ ownerId: string; puzzle: PuzzleType; id: string } | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState('');
@@ -91,10 +93,21 @@ export function TimerPageShell() {
   const blocksNextRun = Boolean(pending && pending.status !== 'saved');
   const selectedPuzzle = activeRun?.puzzle ?? (pending && pending.status !== 'saved' ? pending.completion.puzzle : puzzle);
   const sessionRepository = appServices.status === 'ready' ? appServices.services.sessions : undefined;
-  const scramble = scrambleResult?.puzzle === puzzle ? scrambleResult.scramble : null;
-  const scrambleStatus = appServices.status !== 'ready'
+  const generatorRefreshKey = pending?.status === 'saved' ? pending.completion.solveId : '';
+  const generationRequestKey = `${generatorRefreshKey}:${regenerationCount}`;
+  const hasCurrentScrambleResult = scrambleResult?.puzzle === puzzle && scrambleResult.requestKey === generationRequestKey;
+  const scramble = hasCurrentScrambleResult ? scrambleResult.scramble : null;
+  const scrambleStatus = !appServices.scrambles
     ? 'unavailable'
-    : scrambleResult?.puzzle === puzzle ? (scramble ? 'ready' : 'unavailable') : 'loading';
+    : hasCurrentScrambleResult ? scrambleResult.status : 'loading';
+  const lifecycleLocked = Boolean(activeRun || (pending && pending.status !== 'saved'));
+  const displayedScramble = lifecycleLocked
+    ? activeRun?.scramble ?? pending?.completion.scramble ?? null
+    : scramble;
+  const displayedScrambleStatus = lifecycleLocked
+    ? displayedScramble ? 'ready' : 'unavailable'
+    : scrambleStatus;
+  const timerCritical = running || blocksNextRun || holdState !== 'idle';
   const currentSessionResult = auth.status === 'signed-in'
     && sessionResult?.ownerId === auth.user?.id
     && sessionResult?.puzzle === puzzle ? sessionResult : null;
@@ -111,7 +124,6 @@ export function TimerPageShell() {
     && sessionSelection?.puzzle === puzzle
     ? sessionSelection?.id ?? ''
     : sessions[0]?.id ?? '';
-  const generatorRefreshKey = pending?.status === 'saved' ? pending.completion.solveId : '';
   const overviewStatistics = [
     { key: 'single', label: 'timerStatSingle' },
     { key: 'ao5', label: 'timerStatAo5' },
@@ -119,7 +131,8 @@ export function TimerPageShell() {
   ] as const;
 
   const startTimer = useCallback((timingSource: TimingSource) => {
-    if (blocksNextRun || scrambleStatus === 'loading' || keyboardPhase.current === 'holding' || keyboardPhase.current === 'armed') return;
+    if (blocksNextRun || scrambleStatus !== 'ready' || !scramble || scramble.puzzle !== puzzle
+      || keyboardPhase.current === 'holding' || keyboardPhase.current === 'armed') return;
     setRecoveryMessage('');
     beginRun(puzzle, scramble, selectedSessionId || undefined, timingSource);
   }, [beginRun, blocksNextRun, puzzle, scramble, scrambleStatus, selectedSessionId]);
@@ -138,7 +151,7 @@ export function TimerPageShell() {
 
   const beginHold = useCallback((source: 'keyboard' | 'pointer') => {
     const actions = keyboardActions.current;
-    if (keyboardPhase.current !== 'idle' || actions.activeRun || actions.blocksNextRun || actions.scrambleStatus === 'loading') return;
+    if (keyboardPhase.current !== 'idle' || actions.activeRun || actions.blocksNextRun || actions.scrambleStatus !== 'ready') return;
     keyboardPhase.current = 'holding';
     holdSource.current = source;
     setHoldState('holding');
@@ -198,22 +211,30 @@ export function TimerPageShell() {
   useEffect(() => {
     let active = true;
     if (running || blocksNextRun) return () => { active = false; };
-    if (appServices.status !== 'ready') return () => { active = false; };
-    void appServices.services.scrambles.generate(puzzle).then((result) => {
+    const generator = appServices.scrambles;
+    if (!generator) return () => { active = false; };
+    const controller = new AbortController();
+    void generator.generate(puzzle, { signal: controller.signal }).then((result) => {
       if (!active) return;
       if (result.status === 'success'
         && result.data.puzzle === puzzle
+        && typeof result.data.id === 'string'
+        && result.data.id.trim().length > 0
         && typeof result.data.notation === 'string'
-        && result.data.notation.trim()) {
-        setScrambleResult({ puzzle, scramble: result.data });
+        && result.data.notation.trim()
+        && typeof result.data.generatorVersion === 'string'
+        && result.data.generatorVersion.trim()
+        && typeof result.data.createdAt === 'string'
+        && Number.isFinite(Date.parse(result.data.createdAt))) {
+        setScrambleResult({ puzzle, requestKey: generationRequestKey, status: 'ready', scramble: result.data });
       } else {
-        setScrambleResult({ puzzle, scramble: null });
+        setScrambleResult({ puzzle, requestKey: generationRequestKey, status: 'error', scramble: null });
       }
     }).catch(() => {
-      if (active) setScrambleResult({ puzzle, scramble: null });
+      if (active) setScrambleResult({ puzzle, requestKey: generationRequestKey, status: 'error', scramble: null });
     });
-    return () => { active = false; };
-  }, [appServices, blocksNextRun, generatorRefreshKey, puzzle, running]);
+    return () => { active = false; controller.abort(); };
+  }, [appServices.scrambles, blocksNextRun, generationRequestKey, puzzle, running]);
 
   useEffect(() => {
     let active = true;
@@ -297,6 +318,17 @@ export function TimerPageShell() {
     }
   }
 
+  async function copyScramble() {
+    if (!scramble || scrambleStatus !== 'ready' || scramble.puzzle !== puzzle || timerCritical) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(scramble.notation);
+      setScrambleCopyMessage(t('timerScrambleCopied'));
+    } catch {
+      setScrambleCopyMessage(t('timerScrambleCopyFailed'));
+    }
+  }
+
   function downloadRecovery() {
     if (!pending || pending.status === 'saved') return;
     try {
@@ -331,9 +363,12 @@ export function TimerPageShell() {
               label={t('timerPuzzleLabel')}
               kind="puzzle"
               value={selectedPuzzle}
-              disabled={running || blocksNextRun}
+              disabled={timerCritical}
               aria-describedby="timer-puzzle-hint"
-              onChange={(event) => setPuzzle(event.currentTarget.value as PuzzleType)}
+              onChange={(event) => {
+                setScrambleCopyMessage('');
+                setPuzzle(event.currentTarget.value as PuzzleType);
+              }}
             >
               {puzzleTypes.map((type) => <option key={type} value={type}>{puzzleLabel(type)}</option>)}
             </TimerSelector>
@@ -359,12 +394,37 @@ export function TimerPageShell() {
             <p className="timer-page__hint rv-visually-hidden" id="timer-puzzle-hint">{t('timerPuzzleHint')}</p>
           </div>
 
-          <Card className="timer-page__scramble" aria-labelledby="timer-scramble-heading">
+          <Card aria-busy={scrambleStatus === 'loading'} className="timer-page__scramble" aria-labelledby="timer-scramble-heading">
             <div className="timer-page__section-heading">
               <h2 id="timer-scramble-heading">{t('timerScrambleTitle')}</h2>
-              <Badge tone={scramble ? 'neutral' : 'warning'}>{scramble ? 'Ready' : t('unavailableBadge')}</Badge>
+              <Badge aria-live="polite" role="status" tone={displayedScrambleStatus === 'ready' ? 'success' : displayedScrambleStatus === 'loading' ? 'neutral' : 'warning'}>
+                {displayedScrambleStatus === 'ready' ? t('timerScrambleReady')
+                  : displayedScrambleStatus === 'loading' ? t('timerScrambleGenerating')
+                    : t('timerScrambleUnavailableBadge')}
+              </Badge>
             </div>
-            <ScrambleDisplay scramble={scramble} unavailableMessage={t('timerScrambleUnavailable')} />
+            <ScrambleDisplay
+              scramble={displayedScrambleStatus === 'ready' ? displayedScramble : null}
+              unavailableMessage={displayedScrambleStatus === 'loading' ? t('timerScrambleGenerating')
+                : displayedScrambleStatus === 'error' ? t('timerScrambleFailed') : t('timerScrambleUnavailable')}
+            />
+            {displayedScrambleStatus === 'ready' && <p className="timer-page__hint">{t('timerScrambleEphemeral')}</p>}
+            <div className="timer-page__scramble-actions">
+              {displayedScrambleStatus === 'ready' && <Button disabled={timerCritical || !displayedScramble} onClick={() => void copyScramble()} variant="secondary">
+                {t('timerScrambleCopy')}
+              </Button>}
+              <Button
+                disabled={timerCritical || scrambleStatus === 'loading' || !appServices.scrambles}
+                onClick={() => {
+                  setScrambleCopyMessage('');
+                  setRegenerationCount((count) => count + 1);
+                }}
+                variant="secondary"
+              >
+                {scrambleStatus === 'error' ? t('timerScrambleRetry') : t('timerScrambleNew')}
+              </Button>
+            </div>
+            {scrambleCopyMessage && <p className="timer-page__hint" role="status">{scrambleCopyMessage}</p>}
             <p className="timer-page__hint">{t('timerSelectedPuzzle')}: <strong>{puzzleLabel(selectedPuzzle)}</strong></p>
           </Card>
 
@@ -383,6 +443,7 @@ export function TimerPageShell() {
                 aria-pressed={running}
                 className="timer-page__touch-control"
                 data-timer-control="true"
+                disabled={!running && holdState === 'idle' && (blocksNextRun || scrambleStatus !== 'ready' || !scramble)}
                 onLostPointerCapture={onTimerPointerCancel}
                 onPointerCancel={onTimerPointerCancel}
                 onPointerDown={onTimerPointerDown}
@@ -390,13 +451,13 @@ export function TimerPageShell() {
                 type="button"
               />
             </div>
-            <p className="timer-page__hint">{running ? 'Timing uses a monotonic clock.' : scramble ? 'The displayed scramble is captured with this solve.' : 'Timing remains available, but saving requires a real scramble snapshot.'}</p>
-            <p className="timer-page__instruction" id="timer-touch-instructions">{running ? 'Press Space or tap the timer display to stop.' : 'Press and hold Space or the timer display until green, then release to start. Unsaved solves stay in memory and block another run until saved or recovered.'}</p>
+            <p className="timer-page__hint">{running ? 'Timing uses a monotonic clock.' : scramble ? t('timerScrambleTimerCaptured') : t('timerScrambleMustBeReady')}</p>
+            <p className="timer-page__instruction" id="timer-touch-instructions">{running ? 'Press Space or tap the timer display to stop.' : scrambleStatus !== 'ready' ? t('timerScrambleMustBeReady') : 'Press and hold Space or the timer display until green, then release to start. Unsaved solves stay in memory and block another run until saved or recovered.'}</p>
             {pending && <section aria-live="polite" className={`timer-page__save-state timer-page__save-state--${pending.status}`}>
               <h3>{pending.status === 'saved' ? 'Saved' : pending.status === 'saving' ? 'Saving solve' : 'Solve not saved'}</h3>
               <p role="status">{pending.message}</p>
               {pending.status !== 'saved' && <>
-                {pending.message.includes('signed out') && <p><Link to="/auth/sign-in">Sign in to save this solve</Link></p>}
+                {(pending.message.includes('Sign in') || pending.message.includes('signed out')) && <p><Link to="/auth/sign-in">Sign in to save this solve</Link></p>}
                 <div className="timer-page__actions">
                   {pending.completion.scramble && <Button disabled={pending.status === 'saving'} onClick={retry}>Retry save</Button>}
                   <Button onClick={() => void copyRecovery()} variant="secondary">Copy recovery data</Button>

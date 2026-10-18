@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppServices, ServiceResult } from '../shared/domain/contracts';
 import { AppServicesProvider } from './AppServicesProvider';
 import { useAppServices } from './useAppServices';
+import { scrambleService } from '../features/scrambles/scrambleService';
 
 function ServicesStatus() {
   const state = useAppServices();
@@ -43,6 +44,16 @@ describe('AppServicesProvider', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('NOT_CONFIGURED');
+  });
+
+  it('provides client-side scramble generation to guests without cloud repositories', () => {
+    function GuestState() {
+      const state = useAppServices();
+      return <output>{state.status === 'unavailable' && state.scrambles === scrambleService
+        ? 'guest-scrambles-ready' : 'missing'}</output>;
+    }
+    render(<AppServicesProvider><GuestState /></AppServicesProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent('guest-scrambles-ready');
   });
 
   it('accepts the typed feature service contracts through injection', () => {
