@@ -1,17 +1,22 @@
 import { Badge, Card, PageContainer, Select } from '../shared/components/primitives';
 import { useTranslation } from '../shared/i18n/useTranslation';
 import { ThemeSettings } from '../shared/preferences/ThemeSettings';
+import { useAuth } from '../features/auth/authContext';
 import { RouteState } from './RouteState';
 
 export function SettingsPage() {
   const t = useTranslation();
+  const auth = useAuth();
+  const accountDescription = auth.status === 'signed-in'
+    ? `${auth.user?.email ?? 'Your account'}: ${t('settingsAccountConnectedUnavailable')}`
+    : t('settingsAccountUnavailable');
 
   return <PageContainer className="app-main data-page settings-page" id="main-content" tabIndex={-1}>
     <header className="data-page__header"><div><h1>{t('settingsTitle')}</h1><p className="app-page-description">{t('settingsDescription')}</p></div></header>
 
     <section className="settings-section" aria-labelledby="settings-account-title">
       <div className="data-page__section-heading"><h2 id="settings-account-title">{t('settingsAccountTitle')}</h2><Badge tone="warning">{t('unavailableBadge')}</Badge></div>
-      <RouteState state="unavailable" title={t('settingsAccountUnavailableTitle')} description={t('settingsAccountUnavailable')} />
+      <RouteState state="unavailable" title={t('settingsAccountUnavailableTitle')} description={accountDescription} />
     </section>
 
     <div className="settings-section" id="settings-appearance-title">
