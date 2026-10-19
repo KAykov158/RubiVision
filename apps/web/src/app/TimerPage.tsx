@@ -6,6 +6,7 @@ import { solveTimeDifference, formatSolveTimeDifference } from '../features/time
 import { useTranslation } from '../shared/i18n/useTranslation';
 import { RouteState } from './RouteState';
 import { ScrambleDisplay } from './ScrambleDisplay';
+import { ScrambleCubePreview, type CubePreviewLoader } from './ScrambleCubePreview';
 import { SevenSegmentTimer } from './SevenSegmentTimer';
 import { useAuth } from '../features/auth/authContext';
 import { useTimerCompletion, type TimerCompletion } from '../features/timer/timerCompletionContext';
@@ -186,7 +187,7 @@ function recoveryJson(completion: TimerCompletion) {
   }, null, 2);
 }
 
-export function TimerPageShell() {
+export function TimerPageShell({ loadCubeViewer }: { loadCubeViewer?: CubePreviewLoader } = {}) {
   const t = useTranslation();
   const auth = useAuth();
   const appServices = useAppServices();
@@ -648,6 +649,12 @@ export function TimerPageShell() {
             {scrambleCopyMessage && <p className="timer-page__hint" role="status">{scrambleCopyMessage}</p>}
           </Card>
 
+          <ScrambleCubePreview
+            loadViewer={loadCubeViewer}
+            puzzle={selectedPuzzle}
+            scramble={displayedScrambleStatus === 'ready' ? displayedScramble : null}
+          />
+
           <Card className="timer-page__readout" aria-labelledby="timer-display-heading">
             <div className="timer-page__section-heading">
               <h2 id="timer-display-heading">{t('timerDisplayLabel')}</h2>
@@ -710,10 +717,6 @@ export function TimerPageShell() {
               <Card><h3>{t('timerStatBest')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
               <Card><h3>{t('timerStatAo5')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
               <Card><h3>{t('timerStatAo12')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
-              <Card className="timer-page__cube-card" aria-labelledby="timer-visualization-heading">
-                <h3 id="timer-visualization-heading">{t('timerVisualizationTitle')}</h3>
-                <div className="timer-page__visualization" role="img" aria-label={t('timerVisualizationUnavailable')}><span aria-hidden="true">{t('timerVisualizationMark')}</span></div>
-              </Card>
             </div>
           </section>
         </section>

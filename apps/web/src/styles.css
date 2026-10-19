@@ -686,17 +686,34 @@ body {
 .timer-page__stats > .rv-card { display: grid; align-content: center; gap: 0.45rem; min-width: 0; min-height: 6.5rem; padding: 1rem; }
 .timer-page__stats h3 { margin: 0; color: var(--color-text-muted); font-size: 0.75rem; font-weight: 600; }
 .timer-page__stats p { margin: 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
-.timer-page__cube-card { grid-row: span 1; }
-.timer-page__cube-card h3 { margin: 0; }
-.timer-page__visualization {
-  min-height: 3.1rem;
+.timer-page__cube-preview {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.timer-page__cube-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; min-width: 0; }
+.timer-page__cube-preview-heading .timer-page__hint { font-size: var(--font-size-xs); }
+.timer-page__cube-preview-toggle { flex: 0 0 auto; }
+.timer-page__cube-preview-content { display: grid; justify-items: center; gap: 0.5rem; min-width: 0; }
+.timer-page__cube-preview-modes { display: flex; justify-content: center; gap: 0.5rem; }
+.timer-page__cube-preview-mode { min-width: 4.25rem; }
+.timer-page__cube-preview-viewer {
   display: grid;
   place-items: center;
+  width: 100%;
+  min-height: 3rem;
+  overflow: hidden;
   border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
   background: var(--color-surface-raised);
 }
+.timer-page__cube-preview-viewer.is-ready { min-height: 14rem; }
+.timer-page__cube-preview-viewer twisty-player { display: block; width: min(100%, 25rem); height: 14rem; }
 .timer-page__session-rail > .rv-card { min-width: 0; padding: 1.25rem; }
 .timer-page__panel-heading { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
 .timer-page__panel-heading h2 { margin: 0; }
@@ -778,6 +795,9 @@ body {
   .timer-page__scramble { padding: 1rem; }
   .timer-page__readout { min-height: 16rem; padding: 1rem; }
   .timer-page__seven-segment { height: clamp(4rem, 21vw, 6.5rem); }
+  .timer-page__cube-preview-heading { align-items: start; flex-direction: column; }
+  .timer-page__cube-preview-viewer.is-ready { min-height: 11rem; }
+  .timer-page__cube-preview-viewer twisty-player { height: 11rem; }
   .timer-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-page__stats-section .timer-page__section-heading { align-items: start; flex-direction: column; }
   .timer-page__stats-section .timer-page__section-heading > .timer-page__hint { text-align: left; }

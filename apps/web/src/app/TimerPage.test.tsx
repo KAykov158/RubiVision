@@ -330,6 +330,24 @@ describe('timer-to-cloud-save slice', () => {
     expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
   });
 
+  it('keeps timer operation and solve saving independent when the optional cube viewer fails', async () => {
+    const services = makeServices();
+    const { solves, scrambleRepository } = services;
+    const loadCubeViewer = async () => { throw new Error('optional viewer failed'); };
+    renderApp('signed-in', services, <TimerPageShell loadCubeViewer={loadCubeViewer} />);
+    await flushPromises();
+    fireEvent.click(screen.getByRole('button', { name: 'Show cube preview' }));
+    await flushPromises();
+
+    expect(screen.getByText('Cube preview could not load. The scramble and timer are still available.')).toBeInTheDocument();
+    expect(screen.getByText(testScramble.notation)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+
+    await completeSolve();
+    expect(scrambleRepository.save).toHaveBeenCalledOnce();
+    expect(solves.save).toHaveBeenCalledOnce();
+  });
+
   it('keeps the cached session solve visible during Settings revalidation without relabeling another session', async () => {
     const secondSession: Session = { ...session, id: '88888888-8888-4888-8888-888888888888', name: 'Evening' };
     const services = makeServices(undefined, {
