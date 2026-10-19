@@ -96,14 +96,21 @@ describe('application shell and routes', () => {
   it('navigates by keyboard, updates focus, and supports browser back/forward', async () => {
     const user = userEvent.setup();
     renderApp('/timer');
+    // Establish a known predecessor; replaceState does not clear jsdom history.
+    window.history.pushState({ routeTestStart: true }, '', '/timer');
 
     await user.click(screen.getByRole('link', { name: 'Solves' }));
     expect(await screen.findByRole('heading', { name: 'Solves', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveFocus();
 
+    const backNavigation = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.back();
+    await backNavigation;
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Timer', level: 1 })).toBeInTheDocument());
+
+    const forwardNavigation = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.forward();
+    await forwardNavigation;
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Solves', level: 1 })).toBeInTheDocument());
   });
 

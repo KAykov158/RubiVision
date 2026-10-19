@@ -649,12 +649,6 @@ export function TimerPageShell({ loadCubeViewer }: { loadCubeViewer?: CubePrevie
             {scrambleCopyMessage && <p className="timer-page__hint" role="status">{scrambleCopyMessage}</p>}
           </Card>
 
-          <ScrambleCubePreview
-            loadViewer={loadCubeViewer}
-            puzzle={selectedPuzzle}
-            scramble={displayedScrambleStatus === 'ready' ? displayedScramble : null}
-          />
-
           <Card className="timer-page__readout" aria-labelledby="timer-display-heading">
             <div className="timer-page__section-heading">
               <h2 id="timer-display-heading">{t('timerDisplayLabel')}</h2>
@@ -685,7 +679,7 @@ export function TimerPageShell({ loadCubeViewer }: { loadCubeViewer?: CubePrevie
                 aria-label={difference ? differenceLabel : undefined}
                 className={`timer-page__difference${difference ? ` timer-page__difference--${difference.direction}` : ''}`}
               >
-                <em>{differenceText}</em>
+                {differenceText}
               </span>
             </div>
             {pending && <section aria-live="polite" className={`timer-page__save-state timer-page__save-state--${pending.status}`}>
@@ -717,6 +711,11 @@ export function TimerPageShell({ loadCubeViewer }: { loadCubeViewer?: CubePrevie
               <Card><h3>{t('timerStatBest')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
               <Card><h3>{t('timerStatAo5')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
               <Card><h3>{t('timerStatAo12')}</h3><p aria-label={t('statisticsNoValue')}>—</p></Card>
+              <ScrambleCubePreview
+                loadViewer={loadCubeViewer}
+                puzzle={selectedPuzzle}
+                scramble={displayedScrambleStatus === 'ready' ? displayedScramble : null}
+              />
             </div>
           </section>
         </section>

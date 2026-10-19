@@ -51,6 +51,7 @@ const previousSolve: Solve = {
   startedAt: '2026-10-18T11:59:00.000Z',
   completedAt: '2026-10-18T11:59:41.630Z',
 };
+const testCubePreviewLoader = async () => { throw new Error('optional cube renderer is isolated in timer tests'); };
 
 function makeServices(
   saveSolve: (solve: Solve) => Promise<ServiceResult<void>> = async () => ({ status: 'success', data: undefined }),
@@ -125,7 +126,7 @@ function renderApp(status: AuthContextValue['status'], services: ReturnType<type
 }
 
 function renderTimer(status: AuthContextValue['status'], services = makeServices()) {
-  return renderApp(status, services, <TimerPageShell />);
+  return renderApp(status, services, <TimerPageShell loadCubeViewer={testCubePreviewLoader} />);
 }
 
 function TimerSnapshotProbe() {
@@ -146,7 +147,7 @@ function TimerRouteHarness() {
   const [showTimer, setShowTimer] = useState(true);
   return <>
     <button onClick={() => setShowTimer((show) => !show)} type="button">Toggle timer route</button>
-    {showTimer ? <TimerPageShell /> : <p>Another route</p>}
+    {showTimer ? <TimerPageShell loadCubeViewer={testCubePreviewLoader} /> : <p>Another route</p>}
   </>;
 }
 
@@ -303,9 +304,8 @@ describe('timer-to-cloud-save slice', () => {
     const difference = container.querySelector('.timer-page__difference');
     expect(difference).toHaveTextContent('(-7.26)');
     expect(difference).toHaveClass('timer-page__difference--faster');
-    const italicDifference = difference?.querySelector('em');
-    expect(italicDifference).toHaveTextContent('(-7.26)');
-    expect(italicDifference).toHaveStyle({ fontStyle: 'italic' });
+    expect(difference?.tagName).toBe('SPAN');
+    expect(difference?.querySelector('em')).not.toBeInTheDocument();
     expect(difference).toHaveAttribute('aria-label', '7.26 seconds faster than the previous solve');
     expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '34.37');
     expect(solves.list).toHaveBeenLastCalledWith({ sessionId: session.id, puzzle: '333', limit: 2 });
@@ -336,7 +336,7 @@ describe('timer-to-cloud-save slice', () => {
     const loadCubeViewer = async () => { throw new Error('optional viewer failed'); };
     renderApp('signed-in', services, <TimerPageShell loadCubeViewer={loadCubeViewer} />);
     await flushPromises();
-    fireEvent.click(screen.getByRole('button', { name: 'Show cube preview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cube Preview View in 3D' }));
     await flushPromises();
 
     expect(screen.getByText('Cube preview could not load. The scramble and timer are still available.')).toBeInTheDocument();
@@ -346,6 +346,16 @@ describe('timer-to-cloud-save slice', () => {
     await completeSolve();
     expect(scrambleRepository.save).toHaveBeenCalledOnce();
     expect(solves.save).toHaveBeenCalledOnce();
+  });
+
+  it('places the Cube Preview card beside Ao12 in the statistics grid', async () => {
+    const { container } = renderTimer('signed-out');
+    await flushPromises();
+    const stats = container.querySelector('.timer-page__stats');
+    const preview = screen.getByRole('button', { name: 'Cube Preview View in 3D' });
+    expect(stats?.lastElementChild).toBe(preview);
+    expect(stats?.children[2]).toHaveTextContent('Average of 12');
+    expect(preview).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
   it('keeps the cached session solve visible during Settings revalidation without relabeling another session', async () => {
@@ -421,7 +431,7 @@ describe('timer-to-cloud-save slice', () => {
     services.solves.list
       .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
       .mockImplementationOnce(() => new Promise((resolve) => { resolveNew = resolve; }));
-    const { container } = renderWithAccountSwitch(services, <TimerPageShell />);
+    const { container } = renderWithAccountSwitch(services, <TimerPageShell loadCubeViewer={testCubePreviewLoader} />);
     await flushPromises();
     expect(services.solves.list).toHaveBeenCalledTimes(1);
 
@@ -534,7 +544,7 @@ describe('timer-to-cloud-save slice', () => {
     const expectedSnapshot = { ...sourceScramble };
     const services = makeServices(undefined, { scramble: sourceScramble });
     const { solves, scrambleRepository } = renderApp('signed-in', services, <>
-      <TimerPageShell />
+      <TimerPageShell loadCubeViewer={testCubePreviewLoader} />
       <TimerSnapshotProbe />
     </>);
     await flushPromises();
@@ -654,7 +664,7 @@ describe('timer-to-cloud-save slice', () => {
 
   it('keeps a guest completion unsaved until an explicit retry claims the signed-in account', async () => {
     const services = makeServices();
-    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell />, null);
+    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell loadCubeViewer={testCubePreviewLoader} />, null);
     await completeSolve();
     expect(screen.getByText(/sign in to save this guest solve, then retry/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in to save this solve' })).toHaveAttribute('href', '/auth/sign-in');
@@ -800,7 +810,7 @@ describe('timer-to-cloud-save slice', () => {
       return new Promise<ServiceResult<void>>((resolve) => { resolveFirstScramble = resolve; });
     });
     scrambleRepo.save = saveScramble;
-    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell />);
+    const { solves, scrambleRepository } = renderWithAccountSwitch(services, <TimerPageShell loadCubeViewer={testCubePreviewLoader} />);
     await completeSolve();
     expect(scrambleRepository.save).toHaveBeenCalledWith(expect.anything(), ownerId);
     fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
@@ -967,7 +977,7 @@ describe('timer-to-cloud-save slice', () => {
   it('ignores Space auto-repeat and does not start while focus is in an editable control', async () => {
     const services = makeServices();
     const { solves } = renderApp('signed-in', services, <>
-      <TimerPageShell />
+      <TimerPageShell loadCubeViewer={testCubePreviewLoader} />
       <input aria-label="Text entry" />
     </>);
     await flushPromises();
