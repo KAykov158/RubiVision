@@ -74,6 +74,83 @@ describe('Supabase solve repository ownership', () => {
     }));
   });
 
+  it.each([
+    ['penalty', { penalty: 'none' }],
+    ['notes', { notes: 'different note' }],
+  ] as const)('rejects a duplicate solve ID when the stored %s differs from the retry', async (_field, changedStoredField) => {
+    const solve = { ...integrationFixtures.solve, notes: 'retry note' };
+    const stored = {
+      id: solve.id,
+      session_id: solve.sessionId,
+      scramble_id: solve.scrambleId,
+      puzzle: solve.puzzle,
+      raw_time_ms: solve.rawTimeMs,
+      penalty: 'plus2',
+      timing_source: solve.timingSource,
+      started_at: solve.startedAt,
+      completed_at: solve.completedAt,
+      notes: 'retry note',
+      ...changedStoredField,
+    };
+    const maybeSingle = vi.fn(async () => ({ data: stored, error: null }));
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const insert = vi.fn(async () => ({ error: { code: '23505' } }));
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert, select })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).solves.save(solve, ownerId);
+
+    expect(result).toMatchObject({ status: 'error', code: 'CONFLICT' });
+    expect(select).toHaveBeenCalledWith('id,session_id,scramble_id,puzzle,raw_time_ms,penalty,timing_source,started_at,completed_at,notes');
+  });
+
+  it('accepts an identical duplicate after an ambiguous first solve insert, including nullable notes', async () => {
+    const solve = { ...integrationFixtures.solve };
+    const stored = {
+      id: solve.id,
+      session_id: solve.sessionId,
+      scramble_id: solve.scrambleId,
+      puzzle: solve.puzzle,
+      raw_time_ms: solve.rawTimeMs,
+      penalty: 'plus2',
+      timing_source: solve.timingSource,
+      started_at: solve.startedAt,
+      completed_at: solve.completedAt,
+      notes: null,
+    };
+    const maybeSingle = vi.fn(async () => ({ data: stored, error: null }));
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const insert = vi.fn()
+      .mockResolvedValueOnce({ error: { code: 'FETCH_ERROR', message: 'network request failed' } })
+      .mockResolvedValueOnce({ error: { code: '23505' } });
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert, select })),
+    } as unknown as SupabaseClient<Database>;
+    const repository = createSupabaseRepositories(client).solves;
+
+    const firstAttempt = await repository.save(solve, ownerId);
+    const retry = await repository.save(solve, ownerId);
+
+    expect(firstAttempt).toMatchObject({ status: 'error', code: 'NETWORK' });
+    expect(retry).toEqual({ status: 'success', data: undefined });
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      id: solve.id,
+      penalty: 'plus2',
+      notes: null,
+    }));
+    expect(insert).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      id: solve.id,
+      penalty: 'plus2',
+      notes: null,
+    }));
+  });
+
   it('does not write when Supabase reports an expired authentication session', async () => {
     const insert = vi.fn(async () => ({ error: null }));
     const from = vi.fn(() => ({ insert }));

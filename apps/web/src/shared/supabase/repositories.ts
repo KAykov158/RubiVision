@@ -297,16 +297,18 @@ export function createSupabaseRepositories(client: Client) {
       if (!error) return { status: 'success', data: undefined };
       if (error.code === '23505') {
         const { data: saved, error: readError } = await client.from('solves').select(
-          'id,session_id,scramble_id,puzzle,raw_time_ms,timing_source,started_at,completed_at',
+          'id,session_id,scramble_id,puzzle,raw_time_ms,penalty,timing_source,started_at,completed_at,notes',
         ).eq('id', solve.id).maybeSingle();
         if (!readError && saved
           && saved.session_id === solve.sessionId
           && saved.scramble_id === solve.scrambleId
           && saved.puzzle === solve.puzzle
           && saved.raw_time_ms === solve.rawTimeMs
+          && saved.penalty === fromDomainPenalty(solve.penalty)
           && saved.timing_source === solve.timingSource
           && Date.parse(saved.started_at) === Date.parse(solve.startedAt)
-          && Date.parse(saved.completed_at) === Date.parse(solve.completedAt)) {
+          && Date.parse(saved.completed_at) === Date.parse(solve.completedAt)
+          && (saved.notes ?? null) === (solve.notes ?? null)) {
           return { status: 'success', data: undefined };
         }
       }
