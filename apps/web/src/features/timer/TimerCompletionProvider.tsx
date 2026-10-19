@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useAuth } from '../auth/authContext';
 import { useAppServices } from '../../app/useAppServices';
 import type { PuzzleType, ServiceResult, Solve, TimingSource } from '../../shared/domain/contracts';
-import { TimerCompletionContext, type ActiveTimerRun, type PendingTimerSave, type TimerCompletion } from './timerCompletionContext';
+import { TimerCompletionContext, type ActiveTimerRun, type PendingTimerSave, type TimerCompletion, type TimerCompletionContextValue } from './timerCompletionContext';
 
 function resultMessage(result: ServiceResult<unknown>) {
   if (result.status === 'unavailable') {
@@ -51,6 +51,10 @@ export function TimerCompletionProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<PendingTimerSave | null>(null);
   const [activeRun, setActiveRun] = useState<ActiveTimerRun | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [sessionSnapshot, setSessionSnapshot] = useState<TimerCompletionContextValue['sessionSnapshot']>(null);
+  const [sessionSelection, setSessionSelection] = useState<TimerCompletionContextValue['sessionSelection']>(null);
+  const [comparisonSnapshot, setComparisonSnapshot] = useState<TimerCompletionContextValue['comparisonSnapshot']>(null);
+  const [sessionValidationKey, setSessionValidationKey] = useState<string | null>(null);
   const activeRunRef = useRef<ActiveTimerRun | null>(null);
   const current = useRef<PendingTimerSave | null>(null);
   const handledSolveIds = useRef(new Set<string>());
@@ -234,8 +238,14 @@ export function TimerCompletionProvider({ children }: { children: ReactNode }) {
     if (current.current) void save(current.current.completion.solveId, true);
   }, [save]);
 
-  const value = useMemo(() => ({ pending, activeRun, elapsedMs, complete, startTimer, stopTimer, retry }),
-    [pending, activeRun, elapsedMs, complete, startTimer, stopTimer, retry]);
+  const value = useMemo(() => ({
+    pending, activeRun, elapsedMs, complete, startTimer, stopTimer, retry,
+    sessionSnapshot, setSessionSnapshot, sessionSelection, setSessionSelection,
+    comparisonSnapshot, setComparisonSnapshot, sessionValidationKey, setSessionValidationKey,
+  }), [
+    pending, activeRun, elapsedMs, complete, startTimer, stopTimer, retry,
+    sessionSnapshot, sessionSelection, comparisonSnapshot, sessionValidationKey,
+  ]);
   useEffect(() => {
     if ((!pending || pending.status === 'saved') && !activeRun) return;
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => {

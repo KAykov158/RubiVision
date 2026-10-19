@@ -153,6 +153,8 @@ export interface ScrambleHistoryPage {
 export interface SolveListFilter {
   sessionId?: string;
   puzzle?: PuzzleType;
+  /** Return at most this many most-recent completed solves. */
+  limit?: number;
 }
 
 export interface SolveRepository {

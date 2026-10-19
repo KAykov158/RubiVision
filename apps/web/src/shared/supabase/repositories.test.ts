@@ -7,6 +7,51 @@ import { createSupabaseRepositories } from './repositories';
 const ownerId = '11111111-1111-4111-8111-111111111111';
 
 describe('Supabase solve repository ownership', () => {
+  it('queries only a bounded latest completed-solve window for the requested session and puzzle', async () => {
+    const row = {
+      id: integrationFixtures.solve.id,
+      session_id: integrationFixtures.solve.sessionId,
+      scramble_id: integrationFixtures.solve.scrambleId,
+      puzzle: integrationFixtures.solve.puzzle,
+      raw_time_ms: integrationFixtures.solve.rawTimeMs,
+      penalty: 'plus2',
+      started_at: integrationFixtures.solve.startedAt,
+      completed_at: integrationFixtures.solve.completedAt,
+      timing_source: integrationFixtures.solve.timingSource,
+      notes: null,
+    };
+    const query = {
+      order: vi.fn(() => query),
+      range: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      then: (resolve: (value: { data: typeof row[]; error: null }) => unknown) => Promise.resolve({ data: [row], error: null }).then(resolve),
+    };
+    const from = vi.fn(() => ({ select: vi.fn(() => query) }));
+    const client = { from } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseRepositories(client).solves.list({
+      sessionId: integrationFixtures.solve.sessionId,
+      puzzle: '333',
+      limit: 2,
+    });
+
+    expect(result).toMatchObject({ status: 'success', data: [{ id: integrationFixtures.solve.id }] });
+    expect(query.order).toHaveBeenNthCalledWith(1, 'completed_at', { ascending: false });
+    expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: false });
+    expect(query.range).toHaveBeenCalledExactlyOnceWith(0, 1);
+    expect(query.eq).toHaveBeenNthCalledWith(1, 'session_id', integrationFixtures.solve.sessionId);
+    expect(query.eq).toHaveBeenNthCalledWith(2, 'puzzle', '333');
+  });
+
+  it('rejects an invalid bounded solve-list limit before querying', async () => {
+    const from = vi.fn();
+    const client = { from } as unknown as SupabaseClient<Database>;
+    const result = await createSupabaseRepositories(client).solves.list({ limit: 0 });
+
+    expect(result).toMatchObject({ status: 'error', code: 'INVALID_INPUT' });
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it('derives the inserted owner from the authenticated Supabase user', async () => {
     const insert = vi.fn(async () => ({ error: null }));
     const getUser = vi.fn(async () => ({ data: { user: { id: '11111111-1111-4111-8111-111111111111' } }, error: null }));

@@ -87,6 +87,12 @@ describe('application shell and routes', () => {
     }
   });
 
+  it('keeps the Scramble History route available without a primary navigation entry', async () => {
+    renderApp('/scrambles');
+    expect(await screen.findByRole('heading', { name: 'Scramble history', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Scramble history' })).not.toBeInTheDocument();
+  });
+
   it('navigates by keyboard, updates focus, and supports browser back/forward', async () => {
     const user = userEvent.setup();
     renderApp('/timer');

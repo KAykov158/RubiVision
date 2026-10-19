@@ -320,9 +320,16 @@ export function createSupabaseRepositories(client: Client) {
       return solve ? { status: 'success', data: solve } : { status: 'error', code: 'UNKNOWN', message: 'Stored solve penalty is unsupported.' };
     },
     async list(filter?: SolveListFilter): Promise<ServiceResult<Solve[]>> {
+      if (filter?.limit !== undefined
+        && (!Number.isInteger(filter.limit) || filter.limit < 1 || filter.limit > PAGE_SIZE)) {
+        return { status: 'error', code: 'INVALID_INPUT', message: 'Solve list limit is invalid.' };
+      }
       const result: Solve[] = [];
-      for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
-        let query = client.from('solves').select('*').order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + PAGE_SIZE - 1);
+      const maxRows = filter?.limit ?? MAX_ROWS;
+      for (let from = 0; from < maxRows; from += PAGE_SIZE) {
+        const pageSize = Math.min(PAGE_SIZE, maxRows - from);
+        const orderColumn = filter?.limit === undefined ? 'created_at' : 'completed_at';
+        let query = client.from('solves').select('*').order(orderColumn, { ascending: false }).order('id', { ascending: false }).range(from, from + pageSize - 1);
         if (filter?.sessionId) query = query.eq('session_id', filter.sessionId);
         if (filter?.puzzle) query = query.eq('puzzle', filter.puzzle);
         const { data, error } = await query;
@@ -330,7 +337,7 @@ export function createSupabaseRepositories(client: Client) {
         const mapped = data.map(toDomainSolve);
         if (mapped.some((solve) => solve === null)) return { status: 'error', code: 'UNKNOWN', message: 'Stored solve data is invalid.' };
         result.push(...mapped as Solve[]);
-        if (data.length < PAGE_SIZE) return { status: 'success', data: result };
+        if (data.length < pageSize || result.length >= maxRows) return { status: 'success', data: result };
       }
       return { status: 'error', code: 'UNKNOWN', message: 'Solve history exceeds the safe pagination limit.' };
     },

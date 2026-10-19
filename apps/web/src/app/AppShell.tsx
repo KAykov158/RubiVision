@@ -17,7 +17,6 @@ function getUserDisplayName(user: ReturnType<typeof useAuth>['user']) {
 const navigationItems = [
   { to: '/timer', label: 'navigationTimer', icon: 'timer' },
   { to: '/solves', label: 'navigationSolves', icon: 'solves' },
-  { to: '/scrambles', label: 'navigationScrambles', icon: 'scrambles' },
   { to: '/statistics', label: 'navigationStatistics', icon: 'statistics' },
   { to: '/analyze', label: 'navigationAnalyze', icon: 'analyze' },
   { to: '/challenges', label: 'navigationChallenges', icon: 'challenges' },

@@ -9,6 +9,7 @@ const segmentPoints = {
 } as const;
 
 const digitSegments: Record<string, readonly (keyof typeof segmentPoints)[]> = {
+  '-': ['g'],
   '0': ['a', 'b', 'c', 'd', 'e', 'f'],
   '1': ['b', 'c'],
   '2': ['a', 'b', 'd', 'e', 'g'],

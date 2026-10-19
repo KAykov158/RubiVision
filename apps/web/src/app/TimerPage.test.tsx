@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '@supabase/supabase-js';
-import type { AppServices, Scramble, ScrambleService, ServiceResult, Session, Solve } from '../shared/domain/contracts';
+import type { AppServices, Scramble, ScrambleService, ServiceResult, Session, Solve, SolveListFilter } from '../shared/domain/contracts';
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext';
 import { TimerCompletionProvider } from '../features/timer/TimerCompletionProvider';
 import { useTimerCompletion, type TimerCompletion } from '../features/timer/timerCompletionContext';
@@ -26,17 +26,49 @@ const testScramble: Scramble = {
   generatorVersion: 'test-fixture-v1',
   createdAt: '2026-10-18T12:00:00.000Z',
 };
+const recentSolve: Solve = {
+  id: '44444444-4444-4444-8444-444444444444',
+  sessionId: session.id,
+  scrambleId: '55555555-5555-4555-8555-555555555555',
+  puzzle: '333',
+  rawTimeMs: 34_370,
+  penalty: 'NONE',
+  startedAt: '2026-10-18T12:00:00.000Z',
+  completedAt: '2026-10-18T12:00:34.370Z',
+  timingSource: 'KEYBOARD',
+};
+
+function selectTimerOption(label: string, optionName: string) {
+  const combobox = screen.getByRole('combobox', { name: label });
+  fireEvent.click(combobox);
+  fireEvent.click(screen.getByRole('option', { name: optionName }));
+}
+const previousSolve: Solve = {
+  ...recentSolve,
+  id: '66666666-6666-4666-8666-666666666666',
+  scrambleId: '77777777-7777-4777-8777-777777777777',
+  rawTimeMs: 41_630,
+  startedAt: '2026-10-18T11:59:00.000Z',
+  completedAt: '2026-10-18T11:59:41.630Z',
+};
 
 function makeServices(
   saveSolve: (solve: Solve) => Promise<ServiceResult<void>> = async () => ({ status: 'success', data: undefined }),
-  options: { scramble?: Scramble | null; sessions?: Session[]; generate?: ScrambleService['generate'] } = {},
+  options: { scramble?: Scramble | null; sessions?: Session[]; solves?: Solve[]; generate?: ScrambleService['generate'] } = {},
 ) {
   const generatedScramble = options.scramble === undefined ? testScramble : options.scramble;
   const availableSessions = options.sessions ?? [session];
+  const availableSolves = options.solves ?? [];
   const solves = {
     save: vi.fn((solve: Solve, expectedOwnerId?: string) => { void expectedOwnerId; return saveSolve(solve); }),
     get: vi.fn(async (id: string): Promise<ServiceResult<Solve | null>> => { void id; return { status: 'success', data: null }; }),
-    list: vi.fn(async (): Promise<ServiceResult<Solve[]>> => ({ status: 'success', data: [] })),
+    list: vi.fn(async (filter?: SolveListFilter): Promise<ServiceResult<Solve[]>> => ({
+      status: 'success',
+      data: availableSolves
+        .filter((solve) => !filter?.sessionId || solve.sessionId === filter.sessionId)
+        .filter((solve) => !filter?.puzzle || solve.puzzle === filter.puzzle)
+        .slice(0, filter?.limit ?? availableSolves.length),
+    })),
     updatePenalty: vi.fn(async (id: string, penalty: Solve['penalty']): Promise<ServiceResult<void>> => { void id; void penalty; return { status: 'success', data: undefined }; }),
   } satisfies AppServices['solves'];
   const sessions = {
@@ -187,16 +219,208 @@ describe('timer-to-cloud-save slice', () => {
     renderTimer('signed-out', makeServices(undefined, { generate }));
     await flushPromises();
     const selector = screen.getByRole('combobox', { name: 'Puzzle type' });
-    expect(Array.from((selector as HTMLSelectElement).options).map((option) => option.value))
-      .toEqual(['222', '333', '444', '555', '666', '777']);
-    expect(Array.from((selector as HTMLSelectElement).options).map((option) => option.textContent))
+    expect(selector).toHaveAccessibleName('Puzzle type');
+    expect(screen.getByRole('combobox', { name: 'Session' })).toHaveAccessibleName('Session');
+    fireEvent.click(selector);
+    expect(screen.getAllByRole('option').map((option) => option.textContent))
       .toEqual(['2×2', '3×3', '4×4', '5×5', '6×6', '7×7']);
-    if (puzzle !== '333') fireEvent.change(selector, { target: { value: puzzle } });
+    if (puzzle !== '333') fireEvent.click(screen.getByRole('option', { name: `${puzzle[0]}×${puzzle[0]}` }));
+    else fireEvent.keyDown(selector, { key: 'Escape' });
     await flushPromises();
     expect(screen.getByText('scramble for ' + puzzle)).toBeInTheDocument();
     expect(screen.getByText('Generated scramble · temporary until a completed solve is confirmed and saved.')).toBeInTheDocument();
-    expect((selector as HTMLSelectElement).value).toBe(puzzle);
+    expect(selector).toHaveAttribute('data-value', puzzle);
     expect(generate).toHaveBeenLastCalledWith(puzzle, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+
+  it('supports keyboard navigation, selection, escape, outside dismissal, and focus return', async () => {
+    const secondSession: Session = { ...session, id: '88888888-8888-4888-8888-888888888888', name: 'Evening' };
+    renderTimer('signed-in', makeServices(undefined, { sessions: [session, secondSession] }));
+    await flushPromises();
+    const sessionSelector = screen.getByRole('combobox', { name: 'Session' });
+    fireEvent.click(sessionSelector);
+    expect(screen.getByRole('option', { name: 'Practice' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('option', { name: 'Evening' }));
+    expect(sessionSelector).toHaveAttribute('data-value', secondSession.id);
+    expect(sessionSelector).toHaveFocus();
+
+    const puzzleSelector = screen.getByRole('combobox', { name: 'Puzzle type' });
+    puzzleSelector.focus();
+    fireEvent.keyDown(puzzleSelector, { key: 'ArrowDown' });
+    expect(puzzleSelector).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('option', { name: '3×3' })).toHaveClass('is-active');
+    fireEvent.keyDown(puzzleSelector, { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: '4×4' })).toHaveClass('is-active');
+    fireEvent.keyDown(puzzleSelector, { key: 'Enter' });
+    expect(puzzleSelector).toHaveAttribute('data-value', '444');
+    expect(puzzleSelector).toHaveFocus();
+
+    fireEvent.keyDown(puzzleSelector, { key: ' ' });
+    expect(puzzleSelector).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.keyDown(puzzleSelector, { key: 'End' });
+    expect(screen.getByRole('option', { name: '7×7' })).toHaveClass('is-active');
+    fireEvent.keyDown(puzzleSelector, { key: ' ' });
+    expect(puzzleSelector).toHaveAttribute('data-value', '777');
+    fireEvent.keyDown(puzzleSelector, { key: 'Home' });
+    expect(screen.getByRole('option', { name: '2×2' })).toHaveClass('is-active');
+    fireEvent.keyDown(puzzleSelector, { key: 'Escape' });
+    expect(puzzleSelector).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(puzzleSelector);
+    fireEvent.pointerDown(document.body);
+    expect(puzzleSelector).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(puzzleSelector);
+    fireEvent.click(screen.getByRole('option', { name: '2×2' }));
+    expect(puzzleSelector).toHaveAttribute('data-value', '222');
+  });
+
+  it('places one concise state-aware instruction above the stable timer row', async () => {
+    const { container } = renderTimer('signed-out');
+    await flushPromises();
+    const instruction = container.querySelector('.timer-page__instruction');
+    const timer = container.querySelector('.timer-page__digits');
+    const timingRow = container.querySelector('.timer-page__timing-display');
+    expect(instruction).toHaveTextContent('Hold Space or touch the timer to start.');
+    expect(instruction!.compareDocumentPosition(timer!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(timingRow?.querySelector('.timer-page__difference')).toHaveAttribute('aria-hidden', 'true');
+    expect(container).not.toHaveTextContent('The displayed scramble is captured with this solve.');
+    expect(container).not.toHaveTextContent('Unsaved solves stay in memory and block another run');
+
+    fireEvent.keyDown(window, { code: 'Space' });
+    expect(instruction).toHaveTextContent('Keep holding to start.');
+    await advance(550);
+    expect(instruction).toHaveTextContent('Release to start.');
+    fireEvent.keyUp(window, { code: 'Space' });
+    expect(instruction).toHaveTextContent('Press Space or tap the timer to stop.');
+    expect(timingRow?.querySelector('.timer-page__difference')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('shows a signed difference from the latest two solves in the selected owner session and puzzle', async () => {
+    const services = makeServices(undefined, { solves: [recentSolve, previousSolve] });
+    const { solves, container } = renderTimer('signed-in', services);
+    await flushPromises();
+
+    const difference = container.querySelector('.timer-page__difference');
+    expect(difference).toHaveTextContent('(-7.26)');
+    expect(difference).toHaveClass('timer-page__difference--faster');
+    const italicDifference = difference?.querySelector('em');
+    expect(italicDifference).toHaveTextContent('(-7.26)');
+    expect(italicDifference).toHaveStyle({ fontStyle: 'italic' });
+    expect(difference).toHaveAttribute('aria-label', '7.26 seconds faster than the previous solve');
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '34.37');
+    expect(solves.list).toHaveBeenLastCalledWith({ sessionId: session.id, puzzle: '333', limit: 2 });
+  });
+
+  it('shows a loading placeholder instead of zero while a signed-in session is first resolved', async () => {
+    const services = makeServices();
+    let resolveSessions!: (result: ServiceResult<Session[]>) => void;
+    services.sessions.list.mockImplementationOnce(() => new Promise((resolve) => { resolveSessions = resolve; }));
+    renderTimer('signed-in', services);
+    await flushPromises();
+
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', 'Loading session');
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('timer')).toHaveTextContent('--.--');
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    expect(services.sessions.list).toHaveBeenCalledWith(ownerId);
+
+    await act(async () => { resolveSessions({ status: 'success', data: [session] }); });
+    await flushPromises();
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '00.00');
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+  });
+
+  it('keeps the cached session solve visible during Settings revalidation without relabeling another session', async () => {
+    const secondSession: Session = { ...session, id: '88888888-8888-4888-8888-888888888888', name: 'Evening' };
+    const services = makeServices(undefined, {
+      sessions: [session, secondSession],
+      solves: [recentSolve, previousSolve, { ...recentSolve, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', sessionId: secondSession.id, rawTimeMs: 30_000 }],
+    });
+    renderApp('signed-in', services, <TimerRouteHarness />);
+    await flushPromises();
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '34.37');
+    selectTimerOption('Session', 'Evening');
+    await flushPromises();
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '30.00');
+
+    let resolveRevalidation!: (result: ServiceResult<Session[]>) => void;
+    services.sessions.list.mockImplementationOnce(() => new Promise((resolve) => { resolveRevalidation = resolve; }));
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+    expect(screen.getByText('Another route')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
+
+    expect(screen.getByRole('combobox', { name: 'Session' })).toHaveTextContent('Evening');
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '30.00');
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    expect(services.sessions.list).toHaveBeenLastCalledWith(ownerId);
+
+    await act(async () => { resolveRevalidation({ status: 'success', data: [session] }); });
+    await flushPromises();
+    expect(screen.getByRole('combobox', { name: 'Session' })).toHaveTextContent('Practice');
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-label', '34.37');
+    expect(screen.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+  });
+
+  it.each([
+    [[recentSolve]],
+    [[{ ...recentSolve, penalty: 'DNF' as const }, previousSolve]],
+    [[recentSolve, { ...previousSolve, penalty: 'DNF' as const }]],
+  ])('hides a difference when only one valid comparable solve is available', async (solvesList) => {
+    const { container } = renderTimer('signed-in', makeServices(undefined, { solves: solvesList }));
+    await flushPromises();
+    expect(container.querySelector('.timer-page__difference')).toHaveTextContent('');
+  });
+
+  it('refreshes the bounded comparison when session or puzzle selection changes', async () => {
+    const secondSession: Session = { ...session, id: '88888888-8888-4888-8888-888888888888', name: 'Evening' };
+    const secondPuzzleSession: Session = { ...secondSession, id: '99999999-9999-4999-8999-999999999999', puzzle: '222' };
+    const services = makeServices(undefined, {
+      sessions: [session, secondSession, secondPuzzleSession],
+      solves: [
+        recentSolve,
+        previousSolve,
+        { ...recentSolve, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', sessionId: secondSession.id, rawTimeMs: 30_000 },
+        { ...previousSolve, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', sessionId: secondSession.id, rawTimeMs: 32_000 },
+        { ...recentSolve, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', sessionId: secondPuzzleSession.id, puzzle: '222' },
+      ],
+    });
+    const { solves } = renderTimer('signed-in', services);
+    await flushPromises();
+
+    selectTimerOption('Session', 'Evening');
+    await flushPromises();
+    expect(solves.list).toHaveBeenLastCalledWith({ sessionId: secondSession.id, puzzle: '333', limit: 2 });
+
+    selectTimerOption('Puzzle type', '2×2');
+    await flushPromises();
+    expect(solves.list).toHaveBeenLastCalledWith({ sessionId: secondPuzzleSession.id, puzzle: '222', limit: 2 });
+  });
+
+  it('discards a stale comparison response after the authenticated account changes', async () => {
+    let resolveOld!: (result: ServiceResult<Solve[]>) => void;
+    let resolveNew!: (result: ServiceResult<Solve[]>) => void;
+    const services = makeServices();
+    services.solves.list
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveNew = resolve; }));
+    const { container } = renderWithAccountSwitch(services, <TimerPageShell />);
+    await flushPromises();
+    expect(services.solves.list).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
+    await flushPromises();
+    expect(services.solves.list).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveOld({ status: 'success', data: [recentSolve, previousSolve] });
+      await Promise.resolve();
+    });
+    expect(container.querySelector('.timer-page__difference')).toHaveTextContent('');
+    await act(async () => {
+      resolveNew({ status: 'success', data: [] });
+      await Promise.resolve();
+    });
+    expect(container.querySelector('.timer-page__difference')).toHaveTextContent('');
   });
 
   it('regenerates explicitly, hides the previous notation while loading, and reports completion', async () => {
@@ -252,7 +476,7 @@ describe('timer-to-cloud-save slice', () => {
     });
     renderTimer('signed-out', makeServices(undefined, { generate }));
     await Promise.resolve();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Puzzle type' }), { target: { value: '222' } });
+    selectTimerOption('Puzzle type', '2×2');
     expect(signals[0]?.aborted).toBe(true);
     await flushPromises();
     finishOld({ status: 'success', data: testScramble });
@@ -333,7 +557,7 @@ describe('timer-to-cloud-save slice', () => {
     const services = makeServices(() => new Promise<ServiceResult<void>>((resolve) => { confirmSave = resolve; }), { generate });
     renderApp('signed-in', services, <TimerRouteHarness />);
     await flushPromises();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Puzzle type' }), { target: { value: '777' } });
+    selectTimerOption('Puzzle type', '7×7');
     await flushPromises();
     expect(screen.getByText('captured 777')).toBeInTheDocument();
     const control = screen.getByRole('button', { name: 'Timer control' });
@@ -345,7 +569,7 @@ describe('timer-to-cloud-save slice', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Toggle timer route' }));
     await flushPromises();
     expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toBeDisabled();
-    expect((screen.getByRole('combobox', { name: 'Puzzle type' }) as HTMLSelectElement).value).toBe('777');
+    expect(screen.getByRole('combobox', { name: 'Puzzle type' })).toHaveAttribute('data-value', '777');
     expect(screen.getByText('captured 777')).toBeInTheDocument();
     await advance(321);
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Timer control' }), { pointerId: 3, pointerType: 'touch', button: 0 });
@@ -471,7 +695,8 @@ describe('timer-to-cloud-save slice', () => {
     const { solves } = renderTimer('signed-in', makeServices(undefined, { sessions: [session, secondSession] }));
     await flushPromises();
     const sessionSelector = screen.getByRole('combobox', { name: 'Session' });
-    fireEvent.change(sessionSelector, { target: { value: secondSession.id } });
+    fireEvent.click(sessionSelector);
+    fireEvent.click(screen.getByRole('option', { name: 'Evening' }));
     await completeSolve();
     expect(solves.save.mock.calls[0]?.[0].sessionId).toBe(secondSession.id);
   });
