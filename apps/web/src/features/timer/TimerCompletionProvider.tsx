@@ -118,7 +118,19 @@ export function TimerCompletionProvider({ children }: { children: ReactNode }) {
         update({ ...ownedRecord, status: 'unsaved', message: 'The session or scramble repository is unavailable. This solve remains in memory.' });
         return;
       }
-      const listed = await sessionRepository.list(completionOwnerId);
+      // TimerPage resolves this exact owner/puzzle session list before enabling
+      // a run. Reuse its selected session to avoid another round trip at stop.
+      // Retry or nonstandard completion paths still fall back to a fresh read.
+      const cachedSessions = sessionSnapshot?.ownerId === completionOwnerId
+        && sessionSnapshot.puzzle === record.completion.puzzle
+        && sessionSnapshot.status === 'ready'
+        && record.completion.selectedSessionId
+        && sessionSnapshot.sessions.some((item) => item.id === record.completion.selectedSessionId && item.puzzle === record.completion.puzzle)
+        ? sessionSnapshot.sessions
+        : null;
+      const listed = cachedSessions
+        ? { status: 'success' as const, data: cachedSessions }
+        : await sessionRepository.list(completionOwnerId);
       if (!ownerIsCurrent()) {
         update({ ...ownedRecord, status: 'unsaved', message: ownerMismatchMessage() });
         return;
@@ -181,7 +193,7 @@ export function TimerCompletionProvider({ children }: { children: ReactNode }) {
     } finally {
       savingSolveIds.current.delete(solveId);
     }
-  }, [services, update]);
+  }, [services, sessionSnapshot, update]);
 
   const complete = useCallback((completion: TimerCompletion) => {
     if (handledSolveIds.current.has(completion.solveId)) return;

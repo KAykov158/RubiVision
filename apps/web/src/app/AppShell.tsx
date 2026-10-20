@@ -39,6 +39,8 @@ function NavigationIcon({ name }: { name: (typeof navigationItems)[number]['icon
 
 function PrimaryNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const t = useTranslation();
+  const auth = useAuth();
+  const showSignIn = auth.status === 'signed-out' || auth.status === 'unconfigured';
 
   return (
     <nav aria-label={t('primaryNavigation')}>
@@ -55,6 +57,13 @@ function PrimaryNavigation({ onNavigate }: { onNavigate?: () => void }) {
             </NavLink>
           </li>
         ))}
+        {showSignIn && (
+          <li>
+            <NavLink className={({ isActive }) => `app-navigation__link${isActive ? ' is-active' : ''}`} onClick={onNavigate} to="/auth/sign-in">
+              Sign in
+            </NavLink>
+          </li>
+        )}
       </ul>
     </nav>
   );
@@ -125,7 +134,7 @@ export function AppShell() {
             <span aria-hidden="true">☰</span>
           </IconButton>
           <Link className="app-header__brand" to="/timer">{t('appTitle')}</Link>
-          {isSupabaseConfigured && auth.status === 'signed-in' && <Button onClick={() => void handleSignOut()}>Sign out</Button>}
+          {isSupabaseConfigured && auth.status === 'signed-in' && <Button className="app-header__account-action" onClick={() => void handleSignOut()}>Sign out</Button>}
         </header>
 
         <aside className="app-sidebar">

@@ -44,6 +44,7 @@ button { color: inherit; }
 .app-header__brand { color: var(--color-text); font-size: var(--font-size-lg); font-weight: 750; text-decoration: none; }
 .app-header__brand:focus-visible { border-radius: var(--radius-xs); }
 .app-header__menu { display: none; flex: 0 0 auto; }
+.app-header .app-header__account-action { display: none; }
 .app-sidebar { grid-column: 1; grid-row: 2; padding: var(--space-6) var(--space-3); border-right: 1px solid var(--color-border-subtle); background: var(--color-surface); }
 .app-route-content { grid-column: 2; grid-row: 2; min-width: 0; }
 .app-navigation ul { padding: 0; margin: 0; list-style: none; }
@@ -85,6 +86,9 @@ button { color: inherit; }
 .timer-page__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
 .timer-page__instruction { max-width: 42ch; margin: 0; color: var(--color-text-muted); font-size: var(--font-size-sm); }
 .timer-page__save-state textarea { width: 100%; min-height: 5rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.timer-page__recovery { display: grid; gap: var(--space-3); }
+.timer-page__recovery summary { width: fit-content; min-height: 2.75rem; display: flex; align-items: center; color: var(--color-accent); font-weight: 650; cursor: pointer; }
+.timer-page__recovery-content { display: grid; gap: var(--space-3); }
 .timer-page__save-state { width: min(100%, 42rem); display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-align: start; }
 .timer-page__save-state h3,
 .timer-page__save-state p { margin: 0; }
@@ -310,6 +314,7 @@ button { color: inherit; }
   .app-shell { display: block; }
   .app-header { height: 4rem; padding-inline: var(--space-2); }
   .app-header__menu.rv-icon-button { display: inline-grid; }
+  .app-header .app-header__account-action { display: inline-flex; }
   .app-sidebar { display: none; }
   .app-route-content { min-width: 0; }
   .solves-table-wrap { display: none; }
@@ -817,6 +822,7 @@ body {
   }
   .app-header__brand { font-size: 0.95rem; }
   .app-header__menu.rv-icon-button { display: inline-grid; }
+
   .app-sidebar { display: none; }
   .app-route-content { min-width: 0; }
   .app-main, .rv-page-container { width: min(100% - 2rem, 78rem); padding-block: 1.5rem; }

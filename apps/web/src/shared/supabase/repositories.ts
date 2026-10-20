@@ -107,6 +107,9 @@ async function getOwnerId(client: Client, expectedOwnerId?: string): Promise<{ o
 }
 
 export function createSupabaseRepositories(client: Client) {
+  // Cache only schema capability learned from an explicit response. This avoids
+  // repeating a known missing-column round trip for every solve in this tab.
+  let scrambleProvenanceColumns: boolean | null = null;
   const scrambles = {
     async save(scramble: Scramble, expectedOwnerId?: string): Promise<ServiceResult<void>> {
       const owner = await getOwnerId(client, expectedOwnerId);
@@ -130,15 +133,22 @@ export function createSupabaseRepositories(client: Client) {
         generator_version: scramble.generatorVersion,
         created_at: scramble.createdAt,
       };
-      const { error } = await client.from('scrambles').insert({
-        ...legacyInsert,
-        generator_provider: scramble.generatorProvider ?? null,
-        generation_method: scramble.generationMethod ?? null,
-      });
-      if (!error) return { status: 'success', data: undefined };
+      const useLegacySchema = scrambleProvenanceColumns === false;
+      const { error } = useLegacySchema
+        ? await client.from('scrambles').insert(legacyInsert)
+        : await client.from('scrambles').insert({
+          ...legacyInsert,
+          generator_provider: scramble.generatorProvider ?? null,
+          generation_method: scramble.generationMethod ?? null,
+        });
+      if (!error) {
+        if (!useLegacySchema) scrambleProvenanceColumns = true;
+        return { status: 'success', data: undefined };
+      }
       if (isMissingProvenanceColumns(error)) {
-        // Older hosted schemas have neither optional provenance column. Retry
-        // the exact same immutable scramble identity with the original schema.
+        // Older hosted schemas have neither optional provenance column. Cache
+        // only this explicit schema response, then retry the exact same row.
+        scrambleProvenanceColumns = false;
         const { error: legacyError } = await client.from('scrambles').insert(legacyInsert);
         if (!legacyError) return { status: 'success', data: undefined };
         if (legacyError.code === '23505') {
@@ -158,19 +168,35 @@ export function createSupabaseRepositories(client: Client) {
         return serviceFailure(legacyError);
       }
       if (error.code === '23505') {
-        const { data: saved, error: readError } = await client.from('scrambles')
-          .select('id,owner_id,puzzle,notation,generator_provider,generator_version,generation_method,created_at')
-          .eq('id', scramble.id)
-          .maybeSingle();
-        if (!readError && saved
-          && saved.owner_id === owner.ownerId
-          && saved.puzzle === scramble.puzzle
-          && saved.notation === scramble.notation
-          && saved.generator_provider === (scramble.generatorProvider ?? null)
-          && saved.generator_version === scramble.generatorVersion
-          && saved.generation_method === (scramble.generationMethod ?? null)
-          && Date.parse(saved.created_at) === Date.parse(scramble.createdAt)) {
-          return { status: 'success', data: undefined };
+        if (useLegacySchema) {
+          const { data: saved, error: readError } = await client.from('scrambles')
+            .select('id,owner_id,puzzle,notation,generator_version,created_at')
+            .eq('id', scramble.id)
+            .maybeSingle();
+          if (!readError && saved
+            && saved.owner_id === owner.ownerId
+            && saved.puzzle === scramble.puzzle
+            && saved.notation === scramble.notation
+            && saved.generator_version === scramble.generatorVersion
+            && Date.parse(saved.created_at) === Date.parse(scramble.createdAt)) {
+            return { status: 'success', data: undefined };
+          }
+        } else {
+          const { data: saved, error: readError } = await client.from('scrambles')
+            .select('id,owner_id,puzzle,notation,generator_provider,generator_version,generation_method,created_at')
+            .eq('id', scramble.id)
+            .maybeSingle();
+          if (!readError && saved
+            && saved.owner_id === owner.ownerId
+            && saved.puzzle === scramble.puzzle
+            && saved.notation === scramble.notation
+            && saved.generator_provider === (scramble.generatorProvider ?? null)
+            && saved.generator_version === scramble.generatorVersion
+            && saved.generation_method === (scramble.generationMethod ?? null)
+            && Date.parse(saved.created_at) === Date.parse(scramble.createdAt)) {
+            scrambleProvenanceColumns = true;
+            return { status: 'success', data: undefined };
+          }
         }
       }
       return serviceFailure(error);

@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-const user = {
+export const browserUser = {
   id: 'd1e79f7e-816c-468f-9a66-312f50712b37',
   aud: 'authenticated',
   role: 'authenticated',
@@ -14,8 +14,13 @@ const user = {
 export async function signInFromProtectedRoute(page: Page, width: number, height = 844) {
   await page.setViewportSize({ width, height });
   const expiry = Math.floor(Date.now() / 1000) + 3600;
-  const payload = Buffer.from(JSON.stringify({ sub: user.id, aud: 'authenticated', role: 'authenticated', exp: expiry })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: browserUser.id, aud: 'authenticated', role: 'authenticated', exp: expiry })).toString('base64url');
 
+  await page.route(/\/auth\/v1\/user(?:\?|$)/u, (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(browserUser),
+  }));
   await page.route(/\/auth\/v1\/token\?grant_type=password/u, (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -25,7 +30,7 @@ export async function signInFromProtectedRoute(page: Page, width: number, height
       expires_in: 3600,
       expires_at: expiry,
       refresh_token: 'browser-test-refresh-token',
-      user,
+      user: browserUser,
     }),
   }));
   await page.route(/\/auth\/v1\/logout/u, (route) => route.fulfill({ status: 204, body: '' }));
@@ -34,7 +39,7 @@ export async function signInFromProtectedRoute(page: Page, width: number, height
   await page.goto('/statistics');
   await expect(page).toHaveURL(/\/auth\/sign-in$/u);
   await expect(page.getByRole('heading', { name: 'Sign in to RubiVision' })).toBeVisible();
-  await page.getByLabel('Email').fill(user.email);
+  await page.getByLabel('Email').fill(browserUser.email);
   await page.getByLabel('Password').fill('browser-test-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/statistics$/u);

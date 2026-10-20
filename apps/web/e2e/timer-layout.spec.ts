@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signInFromProtectedRoute } from './support/mockAuth';
+import { chooseTimerOption, waitForTimerReady } from './support/timerControls';
 
 const widths = [320, 360, 375, 390, 430, 768, 1024, 1440];
 const themes = ['light', 'dark'] as const;
@@ -55,27 +56,29 @@ for (const theme of themes) {
         }
         const visibleControls = [...document.querySelectorAll<HTMLElement>('.app-header button, .timer-page button, .timer-page select')].filter(visible);
         const selectorSafety = [...document.querySelectorAll<HTMLElement>('.timer-page__selector-control')].map((control) => {
-          const select = control.querySelector<HTMLSelectElement>('select');
+          const combobox = control.querySelector<HTMLButtonElement>('[role="combobox"]');
+          const value = control.querySelector<HTMLElement>('.timer-page__selector-value');
           const icon = control.querySelector<HTMLElement>('.timer-page__selector-icon');
           const chevron = control.querySelector<HTMLElement>('.timer-page__selector-chevron');
-          if (!select || !icon || !chevron) return null;
-          const selectRect = select.getBoundingClientRect();
+          if (!combobox || !value || !icon || !chevron) return null;
+          const controlRect = combobox.getBoundingClientRect();
           const iconRect = icon.getBoundingClientRect();
           const chevronRect = chevron.getBoundingClientRect();
-          const style = getComputedStyle(select);
+          const style = getComputedStyle(combobox);
+          const valueStyle = getComputedStyle(value);
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
-          if (context) context.font = style.font;
-          const selectedText = select.selectedOptions[0]?.textContent?.trim() ?? '';
-          const availableWidth = select.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
-          const measuredTextWidth = context?.measureText(selectedText).width ?? 0;
+          if (context) context.font = valueStyle.font;
+          const displayedText = value.textContent?.trim() ?? '';
+          const measuredTextWidth = context?.measureText(displayedText).width ?? 0;
+          const availableWidth = value.clientWidth;
           return {
-            name: select.getAttribute('aria-label'),
-            displayedText: selectedText,
+            name: combobox.getAttribute('aria-label'),
+            displayedText,
             measuredTextWidth,
             availableWidth,
-            iconClearance: Number.parseFloat(style.paddingLeft) - (iconRect.right - selectRect.left),
-            chevronClearance: Number.parseFloat(style.paddingRight) - (selectRect.right - chevronRect.left),
+            iconClearance: Number.parseFloat(style.paddingLeft) - (iconRect.right - controlRect.left),
+            chevronClearance: Number.parseFloat(style.paddingRight) - (controlRect.right - chevronRect.left),
             textFits: availableWidth >= measuredTextWidth,
           };
         });
@@ -138,11 +141,14 @@ for (const theme of themes) {
       expect(layout.profileVisible).toBe(width >= 768);
       expect(layout.sevenSegment?.height).toBeGreaterThan(50);
       if (width >= 1280) expect(layout.sevenSegment?.height).toBeGreaterThan(160);
-      else if (width >= 768) {
-        expect(layout.sevenSegment?.height).toBeGreaterThan(90);
-        expect(layout.sevenSegment?.height).toBeLessThan(120);
-      } else expect(layout.sevenSegment?.height).toBeLessThan(90);
-      const selectorOrder = await page.locator('.timer-page__selector-field').evaluateAll((fields) => fields.map((field) => field.querySelector('select')?.getAttribute('aria-label')));
+      else if (width >= 1024) {
+        expect(layout.sevenSegment?.height).toBeGreaterThanOrEqual(128);
+        expect(layout.sevenSegment?.height).toBeLessThanOrEqual(128);
+      } else if (width >= 768) {
+        expect(layout.sevenSegment?.height).toBeGreaterThan(120);
+        expect(layout.sevenSegment?.height).toBeLessThan(164);
+      } else expect(layout.sevenSegment?.height).toBeLessThan(100);
+      const selectorOrder = await page.locator('.timer-page__selector-field').evaluateAll((fields) => fields.map((field) => field.querySelector('[role="combobox"]')?.getAttribute('aria-label')));
       expect(selectorOrder).toEqual(['Puzzle type', 'Session']);
       const [puzzleSelectorBox, sessionSelectorBox] = await page.locator('.timer-page__selector-field').all().then((fields) => Promise.all(fields.map((field) => field.boundingBox())));
       expect(puzzleSelectorBox).not.toBeNull();
@@ -177,20 +183,17 @@ for (const theme of themes) {
   }
 }
 
-test('long service-provided scramble notation wraps at the viewport widths without page overflow', async ({ page }) => {
+test('long rendered scramble notation wraps at the viewport widths without page overflow', async ({ page }) => {
   for (const width of widths) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/timer');
-    await expect(page.locator('.timer-page__scramble-empty')).toBeVisible();
+    await waitForTimerReady(page);
     const longNotation = Array.from({ length: 48 }, (_, index) => ['R', "U'", 'F2', 'D', "L'", 'B2'][index % 6]).join(' ');
 
     await page.evaluate((notation) => {
-      const placeholder = document.querySelector('.timer-page__scramble-empty');
-      if (!placeholder) throw new Error('Scramble placeholder was not rendered');
-      const content = document.createElement('p');
-      content.className = 'timer-page__scramble-notation';
+      const content = document.querySelector<HTMLElement>('.timer-page__scramble-notation');
+      if (!content) throw new Error('Rendered scramble notation was not found');
       content.textContent = notation;
-      placeholder.replaceWith(content);
     }, longNotation);
 
     const layout = await page.locator('.timer-page__scramble-notation').evaluate((element) => {
@@ -241,6 +244,7 @@ test('Settings icon keeps the shared navigation alignment and sizing', async ({ 
 test('Space uses red hold, green arm, release to start, and press to stop', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/timer');
+  await waitForTimerReady(page);
   const timer = page.getByRole('timer');
   const control = page.getByRole('button', { name: 'Timer control' });
   await expect(timer).toHaveText('00.00');
@@ -290,14 +294,26 @@ test('Space uses red hold, green arm, release to start, and press to stop', asyn
 
 test('timer display provides accessible pointer hold-to-start and tap-to-stop', async ({ page }) => {
   await page.goto('/timer');
+  await waitForTimerReady(page);
   const timer = page.getByRole('timer');
   const control = page.getByRole('button', { name: 'Timer control' });
   await expect(control).toHaveAttribute('aria-keyshortcuts', 'Space');
   await expect(control).toHaveAttribute('aria-describedby', 'timer-touch-instructions');
+  const colors = await page.evaluate(() => {
+    const resolve = (token: string) => {
+      const probe = document.createElement('span');
+      probe.style.color = `var(${token})`;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    };
+    return { danger: resolve('--color-danger'), success: resolve('--color-success') };
+  });
   await control.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, buttons: 1 });
-  await expect(timer).toHaveCSS('color', 'rgb(161, 34, 34)');
+  await expect(timer).toHaveCSS('color', colors.danger);
   await page.waitForTimeout(560);
-  await expect(timer).toHaveCSS('color', 'rgb(23, 99, 60)');
+  await expect(timer).toHaveCSS('color', colors.success);
   await control.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, buttons: 0 });
   await expect(control).toHaveAttribute('aria-pressed', 'true');
   await page.waitForTimeout(120);
@@ -317,25 +333,33 @@ for (const theme of themes) {
       const puzzle = page.getByRole('combobox', { name: 'Puzzle type' });
       const session = page.getByRole('combobox', { name: 'Session' });
       await expect(puzzle).toBeVisible();
-      await expect(puzzle.locator('option')).toHaveCount(6);
+      await expect(puzzle).toHaveAttribute('aria-valuetext', '3×3');
       await expect(session).toBeVisible();
       await expect(session).toBeDisabled();
-      await expect(session).toHaveValue('');
-      await expect(session.locator('option')).toHaveText('Sign in');
+      await expect(session).toHaveAttribute('aria-valuetext', 'Sign in');
       await expect(session).toHaveAttribute('aria-describedby', 'timer-session-hint');
       await expect(page.locator('#timer-session-hint')).toBeVisible();
 
       for (const value of ['222', '333', '444', '555', '666', '777']) {
-        await puzzle.selectOption(value);
-        await expect(puzzle).toHaveValue(value);
-        await expect(page.locator('.timer-page__scramble > .timer-page__hint strong')).toHaveText(`${value[0]}\u00D7${value[0]}\u00D7${value[0]}`);
+        const label = value[0] + '×' + value[0];
+        await chooseTimerOption(page, 'Puzzle type', label);
+        await expect(puzzle).toHaveAttribute('aria-valuetext', label);
+        await expect(puzzle).toHaveAttribute('data-value', value);
       }
 
-      await puzzle.selectOption('333');
+      await chooseTimerOption(page, 'Puzzle type', '3×3');
       await puzzle.focus();
       await page.keyboard.press('ArrowDown');
-      await expect(puzzle).toHaveValue('444');
+      await page.keyboard.press('ArrowDown');
+      await expect(puzzle).toHaveAttribute('aria-activedescendant', /option-2$/u);
+      await expect(page.getByRole('option', { name: '4×4', exact: true })).toHaveAttribute('aria-selected', 'false');
+      await page.keyboard.press('Enter');
+      await expect(puzzle).toHaveAttribute('aria-valuetext', '4×4');
+      await puzzle.focus();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
       await page.keyboard.press('Escape');
+      await expect(puzzle).toHaveAttribute('aria-valuetext', '4×4');
       await expect(puzzle).toBeFocused();
       const selectorLayout = await page.evaluate(() => {
         const toolbar = document.querySelector<HTMLElement>('.timer-page__toolbar');
@@ -372,7 +396,7 @@ test('native mobile navigation traps focus, closes on Escape, and restores focus
   await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
 
   const close = dialog.getByRole('button', { name: 'Close dialog' });
-  const lastLink = dialog.getByRole('link', { name: 'Settings' });
+  const lastLink = dialog.getByRole('link', { name: 'Sign in' });
   await page.screenshot({ path: testInfo.outputPath('timer-mobile-navigation-open.png'), fullPage: true });
   await lastLink.focus();
   await page.keyboard.press('Tab');
@@ -547,7 +571,18 @@ test('keyboard navigation opens the mobile drawer and focuses the new route', as
   const puzzle = page.getByRole('combobox', { name: 'Puzzle type' });
   await puzzle.focus();
   await page.keyboard.press('ArrowDown');
-  await expect(puzzle).toHaveValue('444');
+  const puzzleListbox = page.getByRole('listbox', { name: 'Puzzle type' });
+  await expect(puzzleListbox).toBeVisible();
+  await expect(puzzle).toHaveAttribute('aria-activedescendant', /option-1$/u);
+  await page.keyboard.press('ArrowDown');
+  await expect(puzzle).toHaveAttribute('aria-activedescendant', /option-2$/u);
+  await expect(puzzleListbox.getByRole('option', { name: '4×4', exact: true })).toHaveAttribute('aria-selected', 'false');
+  await page.keyboard.press('Enter');
+  await expect(puzzle).toHaveAttribute('aria-valuetext', '4×4');
+  await expect(puzzle).toHaveAttribute('data-value', '444');
+  await expect(puzzle).toHaveAttribute('aria-expanded', 'false');
+  await expect(puzzle).toBeFocused();
+  await expect(puzzleListbox).not.toBeVisible();
 
   const menu = page.getByRole('button', { name: 'Open navigation menu' });
   await menu.focus();

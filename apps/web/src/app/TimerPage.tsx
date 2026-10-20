@@ -682,23 +682,26 @@ export function TimerPageShell({ loadCubeViewer }: { loadCubeViewer?: CubePrevie
                 {differenceText}
               </span>
             </div>
-            {pending && <section aria-live="polite" className={`timer-page__save-state timer-page__save-state--${pending.status}`}>
+            {pending && <section aria-busy={pending.status === 'saving'} aria-live="polite" className={`timer-page__save-state timer-page__save-state--${pending.status}`}>
               <h3>{pending.status === 'saved' ? 'Saved' : pending.status === 'saving' ? 'Saving solve' : 'Solve not saved'}</h3>
               <p role="status">{pending.message}</p>
-              {pending.status !== 'saved' && <>
-                {(pending.message.includes('Sign in') || pending.message.includes('signed out')) && <p><Link to="/auth/sign-in">Sign in to save this solve</Link></p>}
-                <div className="timer-page__actions">
-                  {pending.completion.scramble && <Button disabled={pending.status === 'saving'} onClick={retry}>Retry save</Button>}
-                  <Button onClick={() => void copyRecovery()} variant="secondary">Copy recovery data</Button>
-                  <Button onClick={downloadRecovery} variant="secondary">Download recovery file</Button>
+              {pending.status !== 'saved' && <details className="timer-page__recovery" open={pending.status === 'unsaved'}>
+                <summary>Recovery options for this solve</summary>
+                <div className="timer-page__recovery-content">
+                  {(pending.message.includes('Sign in') || pending.message.includes('signed out')) && <p><Link to="/auth/sign-in">Sign in to save this solve</Link></p>}
+                  <div className="timer-page__actions">
+                    {pending.completion.scramble && <Button disabled={pending.status === 'saving'} onClick={retry}>Retry save</Button>}
+                    <Button onClick={() => void copyRecovery()} variant="secondary">Copy recovery data</Button>
+                    <Button onClick={downloadRecovery} variant="secondary">Download recovery file</Button>
+                  </div>
+                  <label className="rv-field">
+                    <span className="rv-field__label">Volatile recovery data</span>
+                    <textarea aria-label="Volatile recovery data" className="rv-input" readOnly rows={8} value={recoveryJson(pending.completion)} />
+                  </label>
+                  {recoveryMessage && <p role="status">{recoveryMessage}</p>}
+                  <p className="timer-page__hint">This unsaved solve exists only in memory. Download or copy it before reloading or closing this tab.</p>
                 </div>
-                <label className="rv-field">
-                  <span className="rv-field__label">Volatile recovery data</span>
-                  <textarea aria-label="Volatile recovery data" className="rv-input" readOnly rows={8} value={recoveryJson(pending.completion)} />
-                </label>
-                {recoveryMessage && <p role="status">{recoveryMessage}</p>}
-                <p className="timer-page__hint">This unsaved solve exists only in memory. Download or copy it before reloading or closing this tab.</p>
-              </>}
+              </details>}
             </section>}
           </Card>
 

@@ -236,6 +236,47 @@ describe('Supabase solve repository ownership', () => {
     expect(insert.mock.calls[1]?.[0].notation).toBe(insert.mock.calls[0]?.[0].notation);
   });
 
+  it('caches an explicit legacy provenance schema and keeps duplicate retries owner-safe', async () => {
+    const scramble = { ...integrationFixtures.scramble, generatorProvider: 'cubing.js', generationMethod: 'RANDOM_STATE' as const };
+    const insert = vi.fn()
+      .mockResolvedValueOnce({ error: {
+        code: 'PGRST204',
+        message: "Could not find the 'generator_provider' column of 'scrambles' in the schema cache",
+      } })
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { code: '23505' } });
+    const maybeSingle = vi.fn(async () => ({ data: {
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: scramble.notation,
+      generator_version: scramble.generatorVersion,
+      created_at: scramble.createdAt,
+    }, error: null }));
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }));
+    const client = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: ownerId } }, error: null })) },
+      from: vi.fn(() => ({ insert, select })),
+    } as unknown as SupabaseClient<Database>;
+    const repository = createSupabaseRepositories(client).scrambleRepository;
+
+    const first = await repository.save(scramble, ownerId);
+    const identicalRetry = await repository.save(scramble, ownerId);
+
+    expect(first).toEqual({ status: 'success', data: undefined });
+    expect(identicalRetry).toEqual({ status: 'success', data: undefined });
+    expect(insert).toHaveBeenCalledTimes(3);
+    expect(insert.mock.calls[2]?.[0]).toEqual({
+      id: scramble.id,
+      owner_id: ownerId,
+      puzzle: scramble.puzzle,
+      notation: scramble.notation,
+      generator_version: scramble.generatorVersion,
+      created_at: scramble.createdAt,
+    });
+    expect(select).toHaveBeenCalledWith('id,owner_id,puzzle,notation,generator_version,created_at');
+    expect(maybeSingle).toHaveBeenCalledOnce();
+  });
   it('accepts an identical legacy-schema duplicate by comparing all stored scramble fields', async () => {
     const scramble = { ...integrationFixtures.scramble, generatorProvider: 'cubing.js', generationMethod: 'RANDOM_STATE' as const };
     const insert = vi.fn()
