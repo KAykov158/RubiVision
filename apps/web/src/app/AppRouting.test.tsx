@@ -1,8 +1,30 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { AppServices, Scramble } from '../shared/domain/contracts';
 import { App } from './App';
 import { AppProviders } from './AppProviders';
+
+const scramble: Scramble = {
+  id: '9a000000-0000-4000-8000-000000000002',
+  puzzle: '333',
+  notation: "R U R' U' F2",
+  generatorProvider: 'test-provider',
+  generatorVersion: 'test-v1',
+  generationMethod: 'RANDOM_STATE',
+  createdAt: '2026-10-19T12:00:00.000Z',
+};
+
+const testServices: AppServices = {
+  scrambles: { generate: async (puzzle) => ({ status: 'success', data: { ...scramble, puzzle } }) },
+  solves: {
+    save: async () => ({ status: 'success', data: undefined }),
+    get: async () => ({ status: 'success', data: null }),
+    list: async () => ({ status: 'success', data: [] }),
+    updatePenalty: async () => ({ status: 'success', data: undefined }),
+  },
+  analysis: { analyze: async () => ({ status: 'unavailable', reason: 'UNSUPPORTED' }) },
+};
 
 const nativeShowModal = HTMLDialogElement.prototype.showModal;
 const nativeClose = HTMLDialogElement.prototype.close;
@@ -31,7 +53,7 @@ beforeEach(() => {
 
 function renderApp(path = '/') {
   window.history.replaceState(null, '', path);
-  return render(<AppProviders><App /></AppProviders>);
+  return render(<AppProviders services={testServices}><App /></AppProviders>);
 }
 
 describe('application shell and routes', () => {
@@ -47,7 +69,7 @@ describe('application shell and routes', () => {
     ['/statistics', 'Statistics'],
     ['/analyze', 'Analyze'],
     ['/challenges', 'Challenges'],
-  ])('renders %s directly with an explicit unavailable state', (path, title) => {
+  ])('renders %s directly with an explicit feature state', async (path, title) => {
     renderApp(path);
     expect(screen.getByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
     if (path === '/statistics') {
@@ -56,22 +78,39 @@ describe('application shell and routes', () => {
       expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeInTheDocument();
     } else if (path === '/challenges') {
       expect(screen.getByRole('heading', { name: 'Challenge participation unavailable' })).toBeInTheDocument();
+    } else if (path === '/timer') {
+      const scrambleRegion = screen.getByRole('region', { name: 'Current scramble' });
+      expect(await within(scrambleRegion).findByText(scramble.notation)).toBeInTheDocument();
+      expect(within(scrambleRegion).getByRole('status')).toHaveTextContent('Ready');
     } else {
-      expect(screen.getByRole('status')).toHaveTextContent('Unavailable');
+      expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Unavailable');
     }
+  });
+
+  it('keeps the Scramble History route available without a primary navigation entry', async () => {
+    renderApp('/scrambles');
+    expect(await screen.findByRole('heading', { name: 'Scramble history', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Scramble history' })).not.toBeInTheDocument();
   });
 
   it('navigates by keyboard, updates focus, and supports browser back/forward', async () => {
     const user = userEvent.setup();
     renderApp('/timer');
+    // Establish a known predecessor; replaceState does not clear jsdom history.
+    window.history.pushState({ routeTestStart: true }, '', '/timer');
 
     await user.click(screen.getByRole('link', { name: 'Solves' }));
     expect(await screen.findByRole('heading', { name: 'Solves', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveFocus();
 
+    const backNavigation = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.back();
+    await backNavigation;
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Timer', level: 1 })).toBeInTheDocument());
+
+    const forwardNavigation = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.forward();
+    await forwardNavigation;
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Solves', level: 1 })).toBeInTheDocument());
   });
 

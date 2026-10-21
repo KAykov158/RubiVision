@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import type { ReactNode } from 'react';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { AppShell } from './AppShell';
-import { AnalyzePage, ChallengesPage, NotFoundPage, SettingsPage, SolvesPage, StatisticsPage, TimerPage } from './RoutePages';
+import { AnalyzePage, ChallengesPage, NotFoundPage, ScrambleHistoryPage, SettingsPage, SolvesPage, StatisticsPage, TimerPage } from './RoutePages';
 import { AuthPage } from '../features/auth/AuthPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 
@@ -19,6 +19,7 @@ export function App() {
       <Route element={<AppShell />}>
         <Route index element={<Navigate replace to="/timer" />} />
         <Route path="timer" element={<RouteErrorBoundary><TimerPage /></RouteErrorBoundary>} />
+        <Route path="scrambles" element={<RouteErrorBoundary><ScrambleHistoryPage /></RouteErrorBoundary>} />
         <Route element={<RequireAuth />}>
           <Route path="solves" element={<RouteErrorBoundary><SolvesPage /></RouteErrorBoundary>} />
           <Route path="statistics" element={<RouteErrorBoundary><StatisticsPage /></RouteErrorBoundary>} />

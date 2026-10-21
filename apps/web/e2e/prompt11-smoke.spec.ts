@@ -34,3 +34,17 @@ test('theme selection remains session-only when preferences service is unavailab
     getComputedStyle(element).getPropertyValue('--color-background').trim(),
   )).toBe('#f5f6f8');
 });
+
+test('unconfigured local auth remains discoverable and explains the missing setup', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/timer');
+
+  const signIn = page.locator('.app-sidebar').getByRole('link', { name: 'Sign in', exact: true });
+  await expect(signIn).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(1);
+  await signIn.click();
+  await expect(page).toHaveURL(/\/auth\/sign-in$/u);
+  await expect(page.getByRole('status')).toContainText('Cloud authentication is not configured');
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeDisabled();
+  await expect(page.getByRole('link', { name: 'Create account', exact: true })).toBeVisible();
+});

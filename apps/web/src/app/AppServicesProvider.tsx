@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import type { AppServices } from '../shared/domain/contracts';
+import { scrambleService } from '../features/scrambles/scrambleService';
 import { AppServicesContext, type AppServicesState } from './appServicesContext';
 
 interface AppServicesProviderProps {
@@ -14,8 +15,8 @@ export function AppServicesProvider({
   const state = useMemo<AppServicesState>(
     () =>
       services
-        ? { status: 'ready', services }
-        : { status: 'unavailable', reason: 'NOT_CONFIGURED' },
+        ? { status: 'ready', services, scrambles: services.scrambles }
+        : { status: 'unavailable', reason: 'NOT_CONFIGURED', scrambles: scrambleService },
     [services],
   );
 

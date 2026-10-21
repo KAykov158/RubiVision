@@ -32,7 +32,7 @@ test('mobile navigation traps focus, dismisses on Escape, and restores focus', a
   await expect(dialog).toBeVisible();
 
   await page.keyboard.press('Shift+Tab');
-  await expect(dialog.getByRole('link', { name: 'Settings' })).toBeFocused();
+  await expect(dialog.getByRole('link', { name: 'Sign in' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();

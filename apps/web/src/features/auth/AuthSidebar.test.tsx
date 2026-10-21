@@ -41,6 +41,14 @@ const testTimerCompletion: TimerCompletionContextValue = {
   startTimer: vi.fn(),
   stopTimer: vi.fn(),
   retry: vi.fn(),
+  sessionSnapshot: null,
+  setSessionSnapshot: vi.fn(),
+  sessionSelection: null,
+  setSessionSelection: vi.fn(),
+  comparisonSnapshot: null,
+  setComparisonSnapshot: vi.fn(),
+  sessionValidationKey: null,
+  setSessionValidationKey: vi.fn(),
 };
 
 function renderApp(path: string) {

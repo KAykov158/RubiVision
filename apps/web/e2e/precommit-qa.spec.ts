@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { signInFromProtectedRoute } from './support/mockAuth';
+import { browserUser, signInFromProtectedRoute } from './support/mockAuth';
+import { chooseTimerOption, waitForTimerReady } from './support/timerControls';
 
-const fixtureUserId = 'd1e79f7e-816c-468f-9a66-312f50712b37';
+const fixtureUserId = browserUser.id;
 const fixtureSessionId = '11111111-1111-4111-8111-111111111111';
-const fixtureScrambleId = '22222222-2222-4222-8222-222222222222';
-const fixtureNotation = "R U R' U'";
 
 async function completeKeyboardSolve(page: Page) {
+  await waitForTimerReady(page);
   await page.locator('#main-content').focus();
   await page.keyboard.down('Space');
   await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--holding/u);
@@ -30,21 +30,31 @@ test('protected-route sign-in returns to the requested route and Settings reflec
   await expect(page.getByText('browser-user@example.test')).toBeVisible();
 });
 
-test('public timer remains usable without a scramble and exposes volatile recovery', async ({ page, context }) => {
+test('public timer generates a scramble offline and exposes volatile recovery', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/timer');
+  await waitForTimerReady(page);
+  const notation = await page.locator('.timer-page__scramble-notation').textContent();
+  expect(notation?.trim().length).toBeGreaterThan(0);
   await expect(page.getByRole('timer')).toHaveAttribute('aria-label', '00.00');
-  await expect(page.locator('.timer-page__scramble-empty')).toBeVisible();
   await completeKeyboardSolve(page);
   await expect(page.getByRole('heading', { name: 'Solve not saved' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Saved', exact: true })).toHaveCount(0);
-  const recovery = JSON.parse(await page.getByRole('textbox', { name: 'Volatile recovery data' }).inputValue()) as { solve: { scrambleId: string | null; rawTimeMs: number } };
-  expect(recovery.solve.scrambleId).toBeNull();
+  const recovery = JSON.parse(await page.getByRole('textbox', { name: 'Volatile recovery data' }).inputValue()) as { solve: { id: string; scrambleId: string | null; rawTimeMs: number }; scramble: { notation: string } };
+  expect(recovery.solve.scrambleId).toBeTruthy();
+  expect(recovery.scramble.notation).toBe(notation?.trim());
   expect(recovery.solve.rawTimeMs).toBeGreaterThanOrEqual(0);
-  await expect(page.getByRole('button', { name: 'Retry save' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Retry save' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Retry save' }).click();
+  await expect(page.getByText('Sign in to save this guest solve, then retry. It remains only in this tab.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Solve not saved' })).toBeVisible();
+  const retried = JSON.parse(await page.getByRole('textbox', { name: 'Volatile recovery data' }).inputValue()) as typeof recovery;
+  expect(retried.solve.id).toBe(recovery.solve.id);
+  expect(retried.scramble.notation).toBe(recovery.scramble.notation);
   await page.getByRole('button', { name: 'Copy recovery data' }).click();
   const copied = JSON.parse(await page.evaluate(() => navigator.clipboard.readText())) as typeof recovery;
   expect(copied.solve.rawTimeMs).toBe(recovery.solve.rawTimeMs);
+  expect(copied.scramble.notation).toBe(notation?.trim());
   await page.getByRole('link', { name: 'Solves' }).click();
   await expect(page).toHaveURL(/\/auth\/sign-in$/u);
   await page.goBack();
@@ -60,25 +70,8 @@ test('public timer remains usable without a scramble and exposes volatile recove
   await expect(page.getByRole('heading', { name: 'Solve not saved' })).toHaveCount(0);
 });
 
-test('mocked cloud failure stays unsaved, exports the exact fixture, and retries with one solve UUID', async ({ page }, testInfo) => {
+test('mocked cloud failure stays unsaved, exports the displayed scramble, and retries with one solve UUID', async ({ page }, testInfo) => {
   await signInFromProtectedRoute(page, 1280);
-  const fixtureUser = {
-    id: fixtureUserId,
-    aud: 'authenticated', role: 'authenticated',
-    email: 'browser-user@example.test',
-    app_metadata: { provider: 'email', providers: ['email'] },
-    user_metadata: { display_name: 'Browser Test User' },
-    created_at: '2026-10-18T00:00:00.000Z',
-  };
-  await page.route(/\/auth\/v1\/user(?:\?|$)/u, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureUser) }));
-  await page.route(/\/src\/shared\/supabase\/repositories\.ts(?:\?|$)/u, async (route) => {
-    const response = await route.fetch();
-    const source = await response.text();
-    const pattern = /scrambles: \{ async generate\(\) \{\s*return unavailable\("UNSUPPORTED"\);/u;
-    if (!pattern.test(source)) throw new Error('Fixture injection did not find the unsupported scramble adapter.');
-    const replacement = `scrambles: { async generate(puzzle) { return { status: "success", data: { id: "${fixtureScrambleId}", puzzle, notation: "${fixtureNotation}", generatorVersion: "browser-fixture-v1", createdAt: "2026-10-18T12:00:00.000Z" } };`;
-    await route.fulfill({ response, body: source.replace(pattern, replacement) });
-  });
   const sessions = [
     { id: fixtureSessionId, name: 'Practice', puzzle: '333', created_at: '2026-10-18T12:00:00.000Z', updated_at: '2026-10-18T12:00:00.000Z' },
     { id: '33333333-3333-4333-8333-333333333333', name: 'Evening', puzzle: '333', created_at: '2026-10-18T13:00:00.000Z', updated_at: '2026-10-18T13:00:00.000Z' },
@@ -86,7 +79,7 @@ test('mocked cloud failure stays unsaved, exports the exact fixture, and retries
   await page.route(/\/rest\/v1\/sessions(?:\?|$)/u, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sessions) }));
   const scramblePosts: Array<Record<string, unknown>> = [];
   await page.route(/\/rest\/v1\/scrambles(?:\?|$)/u, (route) => {
-    scramblePosts.push(JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>);
+    if (route.request().method() === 'POST') scramblePosts.push(JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>);
     return route.fulfill({ status: 201, contentType: 'application/json', body: '' });
   });
   const solvePosts: Array<Record<string, unknown>> = [];
@@ -99,16 +92,17 @@ test('mocked cloud failure stays unsaved, exports the exact fixture, and retries
   });
 
   await page.goto('/timer');
-  await expect(page.getByText(fixtureNotation, { exact: true })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Session' })).toBeEnabled();
-  await page.getByRole('combobox', { name: 'Session' }).selectOption(fixtureSessionId);
+  await waitForTimerReady(page);
+  const notation = (await page.locator('.timer-page__scramble-notation').textContent())?.trim();
+  expect(notation?.length).toBeGreaterThan(0);
+  await chooseTimerOption(page, 'Session', 'Practice');
   await completeKeyboardSolve(page);
   await expect(page.getByRole('heading', { name: 'Solve not saved' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Saved', exact: true })).toHaveCount(0);
   const recovery = JSON.parse(await page.getByRole('textbox', { name: 'Volatile recovery data' }).inputValue()) as { solve: { id: string; sessionId: string; scrambleId: string; rawTimeMs: number }; scramble: { notation: string } };
   expect(recovery.solve.sessionId).toBe(fixtureSessionId);
-  expect(recovery.solve.scrambleId).toBe(fixtureScrambleId);
-  expect(recovery.scramble.notation).toBe(fixtureNotation);
+  expect(recovery.solve.scrambleId).toBeTruthy();
+  expect(recovery.scramble.notation).toBe(notation);
   expect(recovery.solve.rawTimeMs).toBeGreaterThanOrEqual(100);
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download recovery file' }).click();
@@ -116,18 +110,19 @@ test('mocked cloud failure stays unsaved, exports the exact fixture, and retries
   await download.saveAs(testInfo.outputPath('unsaved-solve.json'));
   const downloaded = JSON.parse(await readFile(testInfo.outputPath('unsaved-solve.json'), 'utf8')) as typeof recovery;
   expect(downloaded.solve.id).toBe(recovery.solve.id);
+  expect(downloaded.scramble.notation).toBe(notation);
   await page.getByRole('button', { name: 'Retry save' }).click();
   await expect(page.getByRole('heading', { name: 'Saved', exact: true })).toBeVisible();
   expect(solvePosts).toHaveLength(2);
   expect(solvePosts[0]?.id).toBe(recovery.solve.id);
   expect(solvePosts[1]?.id).toBe(recovery.solve.id);
   expect(solvePosts[1]?.session_id).toBe(fixtureSessionId);
-  expect(solvePosts[1]?.scramble_id).toBe(fixtureScrambleId);
+  expect(solvePosts[1]?.scramble_id).toBe(recovery.solve.scrambleId);
   expect(solvePosts[1]?.owner_id).toBe(fixtureUserId);
   expect(Number.isSafeInteger(solvePosts[1]?.raw_time_ms)).toBe(true);
   expect(Date.parse(String(solvePosts[1]?.started_at))).toBeLessThanOrEqual(Date.parse(String(solvePosts[1]?.completed_at)));
   expect(scramblePosts).toHaveLength(2);
-  expect(scramblePosts.every((scramble) => scramble.id === fixtureScrambleId && scramble.owner_id === fixtureUserId && scramble.notation === fixtureNotation)).toBe(true);
+  expect(scramblePosts.every((scramble) => scramble.id === recovery.solve.scrambleId && scramble.owner_id === fixtureUserId && scramble.puzzle === '333' && scramble.notation === notation && typeof scramble.generator_version === 'string')).toBe(true);
 });
 
 test('Auth forms validate input, show a pending state, and keep server errors generic', async ({ page }) => {
@@ -196,6 +191,7 @@ test('implemented routes navigate, refresh, restore Auth, and preserve history',
 test('timer cancels early holds, repeat and blur; pointer control starts and stops once', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/timer');
+  await waitForTimerReady(page);
   const timer = page.getByRole('timer');
   const digits = page.locator('.timer-page__digits');
   await page.getByRole('combobox', { name: 'Puzzle type' }).evaluate((select) => {
@@ -244,6 +240,7 @@ test('timer cancels early holds, repeat and blur; pointer control starts and sto
 
 test('mouse release outside the timer cannot leave an armed hold stuck', async ({ page }) => {
   await page.goto('/timer');
+  await waitForTimerReady(page);
   const control = page.getByRole('button', { name: 'Timer control' });
   const box = await control.boundingBox();
   if (!box) throw new Error('Timer control has no browser bounds.');
@@ -262,7 +259,7 @@ test('mouse release outside the timer cannot leave an armed hold stuck', async (
 test('an active run survives in-app route navigation without creating a second solve', async ({ page }) => {
   await signInFromProtectedRoute(page, 1440);
   await page.getByRole('link', { name: 'Timer', exact: true }).click();
-  await expect(page.locator('.timer-page__scramble-empty')).toBeVisible();
+  await waitForTimerReady(page);
   await page.locator('#main-content').focus();
   await page.keyboard.down('Space');
   await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--armed/u);
@@ -292,6 +289,7 @@ test('long-running timer keeps all integer digits visible and centered', async (
     (window as Window & { advanceTimerOffset?: (milliseconds: number) => void }).advanceTimerOffset = (milliseconds) => { offset += milliseconds; };
   });
   await page.goto('/timer');
+  await waitForTimerReady(page);
   await page.locator('#main-content').focus();
   await page.keyboard.down('Space');
   await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--armed/u);
@@ -355,5 +353,125 @@ test('Auth forms fit mobile through wide desktop in light and dark themes', asyn
       expect(layout.buttonWidth).toBeGreaterThanOrEqual(44);
       expect(layout.buttonHeight).toBeGreaterThanOrEqual(44);
     }
+  }
+});
+
+test('successful save timing isolates the pre-save session lookup and restores timer readiness', async ({ page }) => {
+  await signInFromProtectedRoute(page, 1280);
+  const sessions = [{
+    id: fixtureSessionId,
+    name: 'Practice',
+    puzzle: '333',
+    created_at: '2026-10-18T12:00:00.000Z',
+    updated_at: '2026-10-18T12:00:00.000Z',
+  }];
+  let sessionLists = 0;
+  let preSolveSessionLists = 0;
+  let solvePosts = 0;
+  await page.route(/\/rest\/v1\/sessions(?:\?|$)/u, async (route) => {
+    if (route.request().method() === 'GET') {
+      sessionLists += 1;
+      if (solvePosts === 0) preSolveSessionLists += 1;
+      if (sessionLists === 2) await new Promise((resolve) => setTimeout(resolve, 300));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sessions) });
+    }
+    return route.fallback();
+  });
+  await page.route(/\/rest\/v1\/scrambles(?:\?|$)/u, (route) => route.request().method() === 'POST'
+    ? route.fulfill({ status: 201, body: '' })
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route(/\/rest\/v1\/solves(?:\?|$)/u, (route) => {
+    if (route.request().method() === 'POST') {
+      solvePosts += 1;
+      return route.fulfill({ status: 201, body: '' });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+
+  await page.goto('/timer');
+  await waitForTimerReady(page);
+  await chooseTimerOption(page, 'Session', 'Practice');
+  await page.locator('#main-content').focus();
+  await page.keyboard.down('Space');
+  await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--holding/u);
+  await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--armed/u);
+  await page.keyboard.up('Space');
+  await expect(page.getByRole('button', { name: 'Timer control' })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(180);
+  const stopStartedAt = performance.now();
+  await page.keyboard.down('Space');
+  await page.keyboard.up('Space');
+  await expect(page.getByRole('heading', { name: 'Saved', exact: true })).toBeVisible();
+  const stopToSaveMs = Math.round(performance.now() - stopStartedAt);
+  expect(preSolveSessionLists).toBe(1);
+  expect(solvePosts).toBe(1);
+  await expect(page.getByRole('textbox', { name: 'Volatile recovery data' })).toHaveCount(0);
+  await waitForTimerReady(page);
+  const stopToTimerReadyMs = Math.round(performance.now() - stopStartedAt);
+  console.log(JSON.stringify({ metric: 'timer_save_latency_ms', stopToSaveMs, stopToTimerReadyMs, sessionLists, preSolveSessionLists }));
+  expect(sessionLists).toBe(2);
+  await expect(page.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+});
+test('slow pending save keeps JSON behind keyboard-accessible recovery options', async ({ page }) => {
+  await signInFromProtectedRoute(page, 1280);
+  const sessions = [{
+    id: fixtureSessionId,
+    name: 'Practice',
+    puzzle: '333',
+    created_at: '2026-10-18T12:00:00.000Z',
+    updated_at: '2026-10-18T12:00:00.000Z',
+  }];
+  let releaseSolvePost: (() => void) | undefined;
+  let markSolvePostStarted: (() => void) | undefined;
+  const solvePostStarted = new Promise<void>((resolve) => { markSolvePostStarted = resolve; });
+  await page.route(/\/rest\/v1\/sessions(?:\?|$)/u, (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(sessions),
+  }));
+  await page.route(/\/rest\/v1\/scrambles(?:\?|$)/u, (route) => route.request().method() === 'POST'
+    ? route.fulfill({ status: 201, body: '' })
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route(/\/rest\/v1\/solves(?:\?|$)/u, async (route) => {
+    if (route.request().method() !== 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    markSolvePostStarted?.();
+    await new Promise<void>((resolve) => { releaseSolvePost = resolve; });
+    return route.fulfill({ status: 201, body: '' });
+  });
+
+  await page.goto('/timer');
+  await waitForTimerReady(page);
+  await chooseTimerOption(page, 'Session', 'Practice');
+  await page.locator('#main-content').focus();
+  await page.keyboard.down('Space');
+  await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--holding/u);
+  await expect(page.locator('.timer-page__digits')).toHaveClass(/timer-page__digits--armed/u);
+  await page.keyboard.up('Space');
+  await expect(page.getByRole('button', { name: 'Timer control' })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(180);
+  await page.keyboard.down('Space');
+  await page.keyboard.up('Space');
+  await solvePostStarted;
+
+  try {
+    await expect(page.getByRole('heading', { name: 'Saving solve' })).toBeVisible();
+    await expect(page.locator('.timer-page__save-state')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('textbox', { name: 'Volatile recovery data' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Timer control' })).toBeDisabled();
+    const recoveryDisclosure = page.locator('.timer-page__recovery > summary');
+    await recoveryDisclosure.focus();
+    await page.keyboard.press('Enter');
+    const recovery = page.getByRole('textbox', { name: 'Volatile recovery data' });
+    await expect(recovery).toBeVisible();
+    const payload = JSON.parse(await recovery.inputValue()) as { solve: { id: string } };
+    await expect(page.getByRole('button', { name: 'Retry save' })).toBeDisabled();
+    releaseSolvePost?.();
+    await expect(page.getByRole('heading', { name: 'Saved', exact: true })).toBeVisible();
+    expect(payload.solve.id).toMatch(/^[0-9a-f-]{36}$/iu);
+    await expect(page.locator('.timer-page__recovery')).toHaveCount(0);
+    await waitForTimerReady(page);
+    await expect(page.getByRole('button', { name: 'Timer control' })).toBeEnabled();
+  } finally {
+    releaseSolvePost?.();
   }
 });

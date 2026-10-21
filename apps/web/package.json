@@ -10,11 +10,13 @@
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:scramble-provider": "vitest run --config vite.provider.config.ts",
     "test:e2e": "playwright test",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
+    "cubing": "0.66.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0"

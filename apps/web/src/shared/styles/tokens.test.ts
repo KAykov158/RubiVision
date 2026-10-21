@@ -23,6 +23,20 @@ describe('design theme tokens', () => {
     expect(tokensCss).toContain('@media (prefers-color-scheme: dark)');
   });
 
+  it('uses vivid semantic success and danger colors in both themes', () => {
+    expect(tokensCss).toContain('--color-success: #166534;');
+    expect(tokensCss).toContain('--color-danger: #b42318;');
+    expect(tokensCss).toContain('--color-success: #4ade80;');
+    expect(tokensCss).toContain('--color-danger: #ff6b6b;');
+  });
+
+  it('keeps the timer display responsive and the comparison slot reserved beside it', () => {
+    expect(appCss).toContain('.timer-page__timing-display');
+    expect(appCss).toContain('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);');
+    expect(appCss).toContain('height: clamp(5rem, 16vw, 14rem);');
+    expect(appCss).toContain('height: clamp(4rem, 21vw, 6.5rem);');
+  });
+
   it('keeps named breakpoints and the minimum supported viewport tokenized', () => {
     expect(tokensCss).toContain('--breakpoint-sm: 40rem;');
     expect(tokensCss).toContain('--layout-content-max: 72rem;');

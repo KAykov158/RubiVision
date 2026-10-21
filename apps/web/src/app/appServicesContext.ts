@@ -1,9 +1,9 @@
 import { createContext } from 'react';
-import type { AppServices, ServiceUnavailableReason } from '../shared/domain/contracts';
+import type { AppServices, ScrambleService, ServiceUnavailableReason } from '../shared/domain/contracts';
 
 export type AppServicesState =
-  | { status: 'ready'; services: AppServices }
-  | { status: 'unavailable'; reason: ServiceUnavailableReason };
+  | { status: 'ready'; services: AppServices; scrambles: ScrambleService }
+  | { status: 'unavailable'; reason: ServiceUnavailableReason; scrambles?: ScrambleService };
 
 const NOT_CONFIGURED: AppServicesState = {
   status: 'unavailable',

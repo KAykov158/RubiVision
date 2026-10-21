@@ -1,14 +1,19 @@
 export type PuzzleType = '222' | '333' | '444' | '555' | '666' | '777';
+export type ScrambleGenerationMethod = 'RANDOM_STATE' | 'RANDOM_MOVE';
 export type Penalty = 'NONE' | 'PLUS_TWO' | 'DNF';
 export type TimingSource = 'KEYBOARD' | 'TOUCH' | 'SMART_CUBE';
 export type ActivityLabel = 'MOVEMENT' | 'PAUSE' | 'UNCERTAIN';
 
 export interface Scramble {
-  id: string;
-  puzzle: PuzzleType;
-  notation: string;
-  generatorVersion: string;
-  createdAt: string;
+  readonly id: string;
+  readonly puzzle: PuzzleType;
+  /** Preserve the exact notation shown to the user. */
+  readonly notation: string;
+  readonly generatorVersion: string;
+  /** Optional for legacy rows whose generator provenance is unknown. */
+  readonly generatorProvider?: string;
+  readonly generationMethod?: ScrambleGenerationMethod;
+  readonly createdAt: string;
 }
 
 export interface Session {
@@ -85,6 +90,7 @@ export type ServiceErrorCode =
   | 'FORBIDDEN'
   | 'CONFLICT'
   | 'NETWORK'
+  | 'SCHEMA_MISMATCH'
   | 'RATE_LIMITED'
   | 'CANCELLED'
   | 'UNKNOWN';
@@ -102,21 +108,57 @@ export type ServiceResult<T> =
       message?: string;
     };
 
+export interface ScrambleGenerationOptions {
+  readonly signal?: AbortSignal;
+}
+
 export interface ScrambleService {
-  generate(puzzle: PuzzleType): Promise<ServiceResult<Scramble>>;
+  generate(puzzle: PuzzleType, options?: ScrambleGenerationOptions): Promise<ServiceResult<Scramble>>;
 }
 
 export interface ScrambleRepository {
-  save(scramble: Scramble): Promise<ServiceResult<void>>;
+  save(scramble: Scramble, expectedOwnerId?: string): Promise<ServiceResult<void>>;
+  get(id: string, expectedOwnerId?: string): Promise<ServiceResult<Scramble | null>>;
+  listHistory(
+    filter: ScrambleHistoryFilter,
+    expectedOwnerId: string,
+  ): Promise<ServiceResult<ScrambleHistoryPage>>;
+}
+
+export interface ScrambleHistoryCursor {
+  readonly savedAt: string;
+  readonly solveId: string;
+}
+
+export interface ScrambleHistoryFilter {
+  readonly puzzle?: PuzzleType;
+  readonly from?: string;
+  readonly through?: string;
+  readonly cursor?: ScrambleHistoryCursor;
+  readonly limit?: number;
+}
+
+export interface SavedScrambleHistoryEntry {
+  readonly scramble: Scramble;
+  /** Timestamp of the server-confirmed solve linked to this scramble. */
+  readonly savedAt: string;
+  readonly solveId: string;
+}
+
+export interface ScrambleHistoryPage {
+  readonly entries: readonly SavedScrambleHistoryEntry[];
+  readonly nextCursor: ScrambleHistoryCursor | null;
 }
 
 export interface SolveListFilter {
   sessionId?: string;
   puzzle?: PuzzleType;
+  /** Return at most this many most-recent completed solves. */
+  limit?: number;
 }
 
 export interface SolveRepository {
-  save(solve: Solve): Promise<ServiceResult<void>>;
+  save(solve: Solve, expectedOwnerId?: string): Promise<ServiceResult<void>>;
   get(id: string): Promise<ServiceResult<Solve | null>>;
   list(filter?: SolveListFilter): Promise<ServiceResult<Solve[]>>;
   updatePenalty(
@@ -126,8 +168,8 @@ export interface SolveRepository {
 }
 
 export interface SessionRepository {
-  list(): Promise<ServiceResult<Session[]>>;
-  create(name: string, puzzle: PuzzleType): Promise<ServiceResult<Session>>;
+  list(expectedOwnerId?: string): Promise<ServiceResult<Session[]>>;
+  create(name: string, puzzle: PuzzleType, expectedOwnerId?: string): Promise<ServiceResult<Session>>;
   archive(id: string): Promise<ServiceResult<void>>;
 }
 

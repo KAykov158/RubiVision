@@ -3,6 +3,7 @@ import type { ServiceErrorCode, ServiceResult, ServiceUnavailableReason } from '
 export function mapSupabaseError(error: { code?: string; status?: number; message?: string }): ServiceErrorCode {
   if (error.status === 429 || error.code === '429') return 'RATE_LIMITED';
   if (error.status === 401 || error.status === 403 || error.code === '42501') return 'FORBIDDEN';
+  if (error.code === '42703' || error.code === 'PGRST204') return 'SCHEMA_MISMATCH';
   if (error.code === '23505' || error.code === '23503' || error.code === '23514') return 'CONFLICT';
   if (error.code === 'PGRST116') return 'NOT_FOUND';
   if (error.code === 'FETCH_ERROR' || error.message?.toLowerCase().includes('network')) return 'NETWORK';
@@ -23,6 +24,7 @@ function safeMessage(code: ServiceErrorCode) {
     case 'FORBIDDEN': return 'This account is not allowed to perform that action.';
     case 'RATE_LIMITED': return 'Too many requests. Wait a moment and try again.';
     case 'NETWORK': return 'The cloud service could not be reached. Check your connection and retry.';
+    case 'SCHEMA_MISMATCH': return 'The cloud database needs an update before this data can be saved. This solve remains in memory; retry after the update is applied.';
     case 'CONFLICT': return 'The record conflicts with existing data or violates a data rule.';
     case 'NOT_FOUND': return 'The requested record was not found.';
     case 'INVALID_INPUT': return 'The supplied data is invalid.';
