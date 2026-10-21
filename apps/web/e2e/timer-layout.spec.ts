@@ -71,7 +71,7 @@ for (const theme of themes) {
           if (context) context.font = valueStyle.font;
           const displayedText = value.textContent?.trim() ?? '';
           const measuredTextWidth = context?.measureText(displayedText).width ?? 0;
-          const availableWidth = value.clientWidth;
+          const availableWidth = value.getBoundingClientRect().width;
           return {
             name: combobox.getAttribute('aria-label'),
             displayedText,
@@ -79,6 +79,7 @@ for (const theme of themes) {
             availableWidth,
             iconClearance: Number.parseFloat(style.paddingLeft) - (iconRect.right - controlRect.left),
             chevronClearance: Number.parseFloat(style.paddingRight) - (controlRect.right - chevronRect.left),
+            textClearance: availableWidth - measuredTextWidth,
             textFits: availableWidth >= measuredTextWidth,
           };
         });
@@ -134,6 +135,7 @@ for (const theme of themes) {
       for (const selector of layout.selectorSafety) {
         expect(selector?.iconClearance, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
         expect(selector?.chevronClearance, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
+        expect(selector?.textClearance, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
         expect(selector?.textFits, JSON.stringify(layout)).toBe(true);
       }
       expect(layout.background).toBe(theme === 'dark' ? '#0c0e12' : '#f5f6f8');

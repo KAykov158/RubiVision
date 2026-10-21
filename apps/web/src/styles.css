@@ -510,7 +510,7 @@ body {
   width: 100%;
   min-width: 0;
   min-height: 3.25rem;
-  padding: 0.65rem 2.8rem 0.65rem 2.7rem;
+  padding: 0.65rem 2.25rem 0.65rem 2.35rem;
   appearance: none;
   border: 1px solid var(--color-border);
   border-radius: 1rem;
@@ -522,7 +522,7 @@ body {
   text-align: left;
   transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 }
-.timer-page__selector-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-page__selector-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timer-page__selector-menu {
   position: absolute;
   z-index: 20;
