@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:scramble-provider": "vitest run --config vite.provider.config.ts",
     "test:e2e": "playwright test",
     "test:watch": "vitest"
   },
